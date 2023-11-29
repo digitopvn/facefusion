@@ -1,24 +1,26 @@
+from typing import List
+
+from facefusion.utilities import is_image, is_video, detect_fps, compress_image, merge_video, extract_frames, get_temp_frame_paths, restore_audio, create_temp, move_temp, clear_temp, list_module_names, encode_execution_providers, decode_execution_providers, normalize_output_path, normalize_padding, create_metavar, update_status
+from facefusion.processors.frame.core import get_frame_processors_modules, load_frame_processor_module
+from facefusion.content_analyser import analyse_image, analyse_video
+from facefusion import face_analyser, content_analyser, metadata, wording
+from facefusion.vision import get_video_frame, read_image, read_static_image
+from facefusion.face_reference import get_face_reference, set_face_reference
+from facefusion.face_analyser import get_one_face, get_many_faces
+from facefusion.typing import Frame
+import facefusion.globals
+import facefusion.choices
+from argparse import ArgumentParser, HelpFormatter
+import onnxruntime
+import shutil
+import platform
+import warnings
+import sys
+import signal
 import os
 
 os.environ['OMP_NUM_THREADS'] = '1'
 
-import signal
-import sys
-import warnings
-import platform
-import shutil
-import onnxruntime
-from argparse import ArgumentParser, HelpFormatter
-
-import facefusion.choices
-import facefusion.globals
-from facefusion.face_analyser import get_one_face
-from facefusion.face_reference import get_face_reference, set_face_reference
-from facefusion.vision import get_video_frame, read_image
-from facefusion import face_analyser, content_analyser, metadata, wording
-from facefusion.content_analyser import analyse_image, analyse_video
-from facefusion.processors.frame.core import get_frame_processors_modules, load_frame_processor_module
-from facefusion.utilities import is_image, is_video, detect_fps, compress_image, merge_video, extract_frames, get_temp_frame_paths, restore_audio, create_temp, move_temp, clear_temp, list_module_names, encode_execution_providers, decode_execution_providers, normalize_output_path, normalize_padding, create_metavar, update_status
 
 onnxruntime.set_default_logger_severity(3)
 warnings.filterwarnings('ignore', category = UserWarning, module = 'gradio')
@@ -189,7 +191,26 @@ def pre_check() -> bool:
 	return True
 
 
+def get_location_frames(reference_frame : Frame) -> List[Frame]:
+	crop_frames = []
+	faces = get_many_faces(reference_frame)
+	for face in faces:
+		start_x, start_y, end_x, end_y = map(int, face.bbox)
+		padding_x = int((end_x - start_x) * 0.25)
+		padding_y = int((end_y - start_y) * 0.25)
+		start_x = max(0, start_x - padding_x)
+		start_y = max(0, start_y - padding_y)
+		end_x = max(0, end_x + padding_x)
+		end_y = max(0, end_y + padding_y)
+		crop_frame = [start_x, start_y, end_x, end_y]
+		crop_frames.append(crop_frame)
+	return crop_frames
+
+
 def conditional_process() -> None:
+	
+	print(get_location_frames(read_static_image(facefusion.globals.target_path)))
+
 	conditional_set_face_reference()
 	for frame_processor_module in get_frame_processors_modules(facefusion.globals.frame_processors):
 		if not frame_processor_module.pre_process('output'):
