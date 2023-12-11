@@ -160,7 +160,7 @@ def main():
         #     cmp_img = np.concatenate((cropped_face, restored_face), axis=1)
         #     imwrite(cmp_img, os.path.join(args.output, 'cmp', f'{basename}_{idx:02d}.png'))
 
-        print(isFile(args.output))
+        # print(isFile(args.output))
 
         # save restored img
         if restored_img is not None:
