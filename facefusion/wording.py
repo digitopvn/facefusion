@@ -39,6 +39,7 @@ WORDING =\
 	'execution_queue_count_help': 'specify the number of execution queries',
 	'skip_download_help': 'omit automate downloads and lookups',
 	'headless_help': 'run the program in headless mode',
+	'get_faces_help': 'run the program in get face mode',
 	'creating_temp': 'Creating temporary resources',
 	'extracting_frames_fps': 'Extracting frames with {fps} FPS',
 	'analysing': 'Analysing',

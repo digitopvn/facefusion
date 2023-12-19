@@ -28,6 +28,7 @@ warnings.filterwarnings('ignore', category = UserWarning, module = 'torchvision'
 
 
 def cli() -> None:
+
 	signal.signal(signal.SIGINT, lambda signal_number, frame: destroy())
 	program = ArgumentParser(formatter_class = lambda prog: HelpFormatter(prog, max_help_position = 120), add_help = False)
 	# general
@@ -39,6 +40,8 @@ def cli() -> None:
 	group_misc = program.add_argument_group('misc')
 	group_misc.add_argument('--skip-download', help = wording.get('skip_download_help'), dest = 'skip_download', action = 'store_true')
 	group_misc.add_argument('--headless', help = wording.get('headless_help'), dest = 'headless', action = 'store_true')
+	group_misc.add_argument('--get-faces', help = wording.get('get_faces_help'), dest = 'get_faces', action = 'store_true')
+	
 	# execution
 	group_execution = program.add_argument_group('execution')
 	group_execution.add_argument('--execution-providers', help = wording.get('execution_providers_help'), dest = 'execution_providers', default = [ 'cpu' ], choices = encode_execution_providers(onnxruntime.get_available_providers()), nargs = '+')
@@ -82,9 +85,11 @@ def cli() -> None:
 	program = ArgumentParser(parents = [ program ], formatter_class = program.formatter_class, add_help = True)
 	group_frame_processors = program.add_argument_group('frame processors')
 	group_frame_processors.add_argument('--frame-processors', help = wording.get('frame_processors_help').format(choices = ', '.join(available_frame_processors)), dest = 'frame_processors', default = [ 'face_swapper' ], nargs = '+')
+
 	for frame_processor in available_frame_processors:
 		frame_processor_module = load_frame_processor_module(frame_processor)
 		frame_processor_module.register_args(group_frame_processors)
+
 	# uis
 	group_uis = program.add_argument_group('uis')
 	group_uis.add_argument('--ui-layouts', help = wording.get('ui_layouts_help').format(choices = ', '.join(list_module_names('facefusion/uis/layouts'))), dest = 'ui_layouts', default = [ 'default' ], nargs = '+')
@@ -100,6 +105,7 @@ def apply_args(program : ArgumentParser) -> None:
 	# misc
 	facefusion.globals.skip_download = args.skip_download
 	facefusion.globals.headless = args.headless
+	facefusion.globals.get_faces = args.get_faces
 	# execution
 	facefusion.globals.execution_providers = decode_execution_providers(args.execution_providers)
 	facefusion.globals.execution_thread_count = args.execution_thread_count
@@ -143,13 +149,20 @@ def apply_args(program : ArgumentParser) -> None:
 
 
 def run(program : ArgumentParser) -> None:
-	apply_args(program)
+
+	apply_args(program)	
 	limit_resources()
+
+	if facefusion.globals.get_faces:
+		get_face_process()
+		return
+		
 	if not pre_check() or not content_analyser.pre_check() or not face_analyser.pre_check():
 		return
 	for frame_processor_module in get_frame_processors_modules(facefusion.globals.frame_processors):
 		if not frame_processor_module.pre_check():
 			return
+		
 	if facefusion.globals.headless:
 		conditional_process()
 	else:
@@ -207,10 +220,12 @@ def get_location_frames(reference_frame : Frame) -> List[Frame]:
 	return crop_frames
 
 
-def conditional_process() -> None:
-	
+def get_face_process() -> None:
 	print(get_location_frames(read_static_image(facefusion.globals.target_path)))
 
+
+def conditional_process() -> None:
+	
 	conditional_set_face_reference()
 	for frame_processor_module in get_frame_processors_modules(facefusion.globals.frame_processors):
 		if not frame_processor_module.pre_process('output'):
