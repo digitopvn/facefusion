@@ -22,6 +22,7 @@ WORDING =\
 	'face_detector_size_help': 'specify the size threshold used for the face detector',
 	'face_detector_score_help': 'specify the score threshold used for the face detector',
 	'face_selector_mode_help': 'specify the mode for the face selector',
+	'reference_face_positions_help': 'specify the position of the reference face',
 	'reference_face_position_help': 'specify the position of the reference face',
 	'reference_face_distance_help': 'specify the distance between the reference face and the target face',
 	'reference_frame_number_help': 'specify the number of the reference frame',

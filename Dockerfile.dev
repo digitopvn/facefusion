@@ -44,7 +44,7 @@ RUN . /venv/bin/activate && \
     python3 setup.py develop && python3 -m pip install --upgrade pip
 
 # first run for download model
-RUN . /venv/bin/activate && python run.py --face-mask-blur 0.1 --face-enhancer-model gfpgan_1.4 --output-image-quality 30 --face-analyser-order left-right --face-selector-mode reference --headless --temp-frame-format png -s "./init-image/source.jpg" -t "./init-image/target.png" -o "./init-image/output.png" --headless
+RUN . /venv/bin/activate && python run.py --face-mask-blur 0.1 --face-enhancer-model gfpgan_1.4 --output-image-quality 30 --face-analyser-order left-right  --face-selector-mode one --headless --temp-frame-format png -s "./init-image/source.jpg" --reference-face-positions 0 -t "./init-image/target.png" -o "./init-image/output.png" --headless
 
 RUN . /venv/bin/activate && python inference_gfpgan.py -v 1.4 -s 1 --ext jpg -i "./init-image/source.jpg" -o "./init-image/upscale.jpg"
 

@@ -25,6 +25,7 @@ face_detector_score : Optional[float] = None
 face_recognizer_model : Optional[FaceRecognizerModel] = None
 # face selector
 face_selector_mode : Optional[FaceSelectorMode] = None
+reference_face_positions : Optional[List[int]] = [0]
 reference_face_position : Optional[int] = None
 reference_face_distance : Optional[float] = None
 reference_frame_number : Optional[int] = None

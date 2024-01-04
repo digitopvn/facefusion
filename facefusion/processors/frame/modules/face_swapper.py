@@ -261,6 +261,7 @@ def get_reference_frame(source_face : Face, target_face : Face, temp_frame : Fra
 
 
 def process_frame(source_face : Face, reference_faces : FaceSet, temp_frame : Frame) -> Frame:
+
 	if 'reference' in facefusion.globals.face_selector_mode:
 		similar_faces = find_similar_faces(temp_frame, reference_faces, facefusion.globals.reference_face_distance)
 		if similar_faces:
