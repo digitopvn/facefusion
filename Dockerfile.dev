@@ -13,9 +13,7 @@ FROM node:${NODE_VERSION} as base
 # Set working directory for all build stages.
 WORKDIR /usr/src/python-app
 
-RUN apt-get update 
-RUN apt-get install curl -y 
-RUN apt-get install ffmpeg -y 
+RUN apt-get update && apt-get install -y ffmpeg curl
 
 # Install Python.
 RUN apt-get update && \
