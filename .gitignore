@@ -1,3 +1,17 @@
+.assets
+.idea
+.vscode
+**/venv/
+**/temp/
+**/outputs/*.jpg
+**/__pycache__/
+**/pyvenv.cfg
+**/local_cache/
+**/*.DS_Store
+**/*.onnx
+**/output/
+
+
 # Created by https://www.toptal.com/developers/gitignore/api/python
 # Edit at https://www.toptal.com/developers/gitignore?templates=python
 
