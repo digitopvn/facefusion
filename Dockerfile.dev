@@ -46,6 +46,8 @@ RUN . /venv/bin/activate && \
 # first run for download model
 RUN . /venv/bin/activate && python run.py --face-mask-blur 0.1 --face-enhancer-model gfpgan_1.4 --output-image-quality 100 --face-analyser-order left-right --face-selector-mode reference --headless --temp-frame-format png -s "./init-image/source.jpg" -t "./init-image/target.png" -o "./init-image/output.png" --headless
 
-RUN . /venv/bin/activate && python inference_gfpgan.py -v 1.4 -s 1 --ext jpg -i "./init-image/source.jpg" -o "./init-image/upscale.jpg"
+RUN . /venv/bin/activate && python inference_gfpgan.py -v 1.4 -s 1 --ext png -i "./init-image/output.png" -o "./init-image/upscale.png"
 
-CMD ["echo", "build success"]
+EXPOSE 3000
+
+CMD . /venv/bin/activate && python run.py --api
