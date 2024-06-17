@@ -165,4 +165,4 @@ async def process_frames(params = Body(...)) -> dict:
 
 def launch():
     app.include_router(router)
-    uvicorn.run(app, host="127.0.0.1", port=3000)
+    uvicorn.run(app, host="0.0.0.0", port=3000)
