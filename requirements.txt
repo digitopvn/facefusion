@@ -7,3 +7,12 @@ opencv-python==4.8.1.78
 psutil==5.9.8
 tqdm==4.66.2
 scipy==1.12.0
+basicsr==1.4.2
+realesrgan==0.3.0
+torch==2.1.0
+facexlib>=0.2.5
+lmdb
+pyyaml
+tb-nightly
+torchvision
+yapf
