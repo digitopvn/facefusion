@@ -5,12 +5,35 @@ from basicsr.utils import img2tensor, tensor2img
 from basicsr.utils.download_util import load_file_from_url
 from facexlib.utils.face_restoration_helper import FaceRestoreHelper
 from torchvision.transforms.functional import normalize
+from time import time
 
 from gfpgan.archs.gfpgan_bilinear_arch import GFPGANBilinear
 from gfpgan.archs.gfpganv1_arch import GFPGANv1
 from gfpgan.archs.gfpganv1_clean_arch import GFPGANv1Clean
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+arch = 'clean'
+channel_multiplier = 2
+model_name = 'GFPGANv1.4'
+url = 'https://github.com/TencentARC/GFPGAN/releases/download/v1.3.0/GFPGANv1.4.pth'
+bg_upsampler = None
+# determine model paths
+model_path = os.path.join('experiments/pretrained_models', model_name + '.pth')
+if not os.path.isfile(model_path):
+    model_path = os.path.join('gfpgan/weights', model_name + '.pth')
+if not os.path.isfile(model_path):
+    # download pre-trained models from url
+    model_path = url
+
+if model_path.startswith('https://'):
+    model_path = load_file_from_url(
+        url=model_path, model_dir=os.path.join(ROOT_DIR, 'gfpgan/weights'), progress=True, file_name=None)
+loadnet = torch.load(model_path)
+if 'params_ema' in loadnet:
+    keyname = 'params_ema'
+else:
+    keyname = 'params'
 
 
 class GFPGANer():
@@ -86,33 +109,51 @@ class GFPGANer():
             device=self.device,
             model_rootpath='gfpgan/weights')
 
-        if model_path.startswith('https://'):
-            model_path = load_file_from_url(
-                url=model_path, model_dir=os.path.join(ROOT_DIR, 'gfpgan/weights'), progress=True, file_name=None)
-        loadnet = torch.load(model_path)
-        if 'params_ema' in loadnet:
-            keyname = 'params_ema'
-        else:
-            keyname = 'params'
+        start_time = time()
+
         self.gfpgan.load_state_dict(loadnet[keyname], strict=True)
         self.gfpgan.eval()
         self.gfpgan = self.gfpgan.to(self.device)
+        seconds = '{:.2f}'.format((time() - start_time) % 60)
+        print(f'-1: [{seconds}] seconds.')
 
     @torch.no_grad()
     def enhance(self, img, has_aligned=False, only_center_face=False, paste_back=True, weight=0.5):
+        start_time = time()
+
         self.face_helper.clean_all()
 
+        seconds = '{:.2f}'.format((time() - start_time) % 60)
+        print(f'1: [{seconds}] seconds.')
+
+        start_time = time()
+        
         if has_aligned:  # the inputs are already aligned
             img = cv2.resize(img, (512, 512))
             self.face_helper.cropped_faces = [img]
         else:
+
+            start_time = time()
             self.face_helper.read_image(img)
+            seconds = '{:.2f}'.format((time() - start_time) % 60)
+            print(f'1a: [{seconds}] seconds.')
+
+            start_time = time()
             # get face landmarks for each face
             self.face_helper.get_face_landmarks_5(only_center_face=only_center_face, eye_dist_threshold=5)
+            seconds = '{:.2f}'.format((time() - start_time) % 60)
+            print(f'1b: [{seconds}] seconds.')
+
             # eye_dist_threshold=5: skip faces whose eye distance is smaller than 5 pixels
             # TODO: even with eye_dist_threshold, it will still introduce wrong detections and restorations.
             # align and warp each face
+            start_time = time()
             self.face_helper.align_warp_face()
+            seconds = '{:.2f}'.format((time() - start_time) % 60)
+            print(f'1c: [{seconds}] seconds.')
+
+        seconds = '{:.2f}'.format((time() - start_time) % 60)
+        print(f'2: [{seconds}] seconds.')
 
         # face restoration
         for cropped_face in self.face_helper.cropped_faces:
@@ -122,9 +163,19 @@ class GFPGANer():
             cropped_face_t = cropped_face_t.unsqueeze(0).to(self.device)
 
             try:
+                start_time = time()
+
                 output = self.gfpgan(cropped_face_t, return_rgb=False, weight=weight)[0]
+
+                seconds = '{:.2f}'.format((time() - start_time) % 60)
+                print(f'3: [{seconds}] seconds.')
+
+                start_time = time()
                 # convert to image
                 restored_face = tensor2img(output.squeeze(0), rgb2bgr=True, min_max=(-1, 1))
+
+                seconds = '{:.2f}'.format((time() - start_time) % 60)
+                print(f'4: [{seconds}] seconds.')
             except RuntimeError as error:
                 print(f'\tFailed inference for GFPGAN: {error}.')
                 restored_face = cropped_face

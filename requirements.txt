@@ -16,3 +16,8 @@ pyyaml
 tb-nightly
 torchvision
 yapf
+inquirer 
+insightface
+opennsfw2
+tensorflow
+python-dotenv

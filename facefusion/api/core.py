@@ -1,3 +1,9 @@
+from gfpgan import GFPGANer
+from time import sleep, time
+from facefusion.core import conditional_process
+import facefusion.globals as globals
+import uvicorn
+from fastapi import FastAPI, APIRouter, Body
 import os
 import base64
 import tempfile
@@ -5,17 +11,36 @@ import base64
 import cv2
 from basicsr.utils import imwrite
 
-from fastapi import FastAPI, APIRouter, Body
-import uvicorn
 
-import facefusion.globals as globals
-from facefusion.core import conditional_process
+# Define a function to load .env file
+def load_env_file(filepath):
+    with open(filepath) as f:
+        for line in f:
+            # Ignore comments and empty lines
+            if line.startswith('#') or not line.strip():
+                continue
+            # Split key and value
+            key, value = line.strip().split('=', 1)
+            os.environ[key] = value
 
-from gfpgan import GFPGANer
-
+# Load the .env file
+load_env_file('.env')
 
 app = FastAPI()
 router = APIRouter()
+
+arch = 'clean'
+channel_multiplier = 2
+model_name = 'GFPGANv1.4'
+url = 'https://github.com/TencentARC/GFPGAN/releases/download/v1.3.0/GFPGANv1.4.pth'
+bg_upsampler = None
+# determine model paths
+model_path = os.path.join('experiments/pretrained_models', model_name + '.pth')
+if not os.path.isfile(model_path):
+    model_path = os.path.join('gfpgan/weights', model_name + '.pth')
+if not os.path.isfile(model_path):
+    # download pre-trained models from url
+    model_path = url
 
 
 def isFile(path):
@@ -88,31 +113,14 @@ async def process_frames(params = Body(...)) -> dict:
     print(globals.output_path)
     conditional_process()
     # output = to_base64_str(globals.output_path)
+    sleep(0.5)
 
-    arch = 'clean'
-    channel_multiplier = 2
-    model_name = 'GFPGANv1.4'
-    url = 'https://github.com/TencentARC/GFPGAN/releases/download/v1.3.0/GFPGANv1.4.pth'
-    bg_upsampler = None
+    start_time_upscale = time()
+
     img_list = [globals.output_path]
     ext=target_extension
     suffix=None
     output_path = os.path.join(tempfile.mkdtemp(), os.path.basename(f'output-upscale.{target_extension}'))
-
-    # determine model paths
-    model_path = os.path.join('experiments/pretrained_models', model_name + '.pth')
-    if not os.path.isfile(model_path):
-        model_path = os.path.join('gfpgan/weights', model_name + '.pth')
-    if not os.path.isfile(model_path):
-        # download pre-trained models from url
-        model_path = url
-
-    restorer = GFPGANer(
-        model_path=model_path,
-        upscale=1,
-        arch=arch,
-        channel_multiplier=channel_multiplier,
-        bg_upsampler=bg_upsampler)
 
     # ------------------------ restore ------------------------
     for img_path in img_list:
@@ -121,14 +129,21 @@ async def process_frames(params = Body(...)) -> dict:
         print(f'Processing {img_name} ...')
         basename, ext = os.path.splitext(img_name)
         input_img = cv2.imread(img_path, cv2.IMREAD_COLOR)
-
+            
+        restorer = GFPGANer(
+            model_path=model_path,
+            upscale=1,
+            arch=arch,
+            channel_multiplier=channel_multiplier,
+            bg_upsampler=bg_upsampler)
+    
         # restore faces and background if necessary
         cropped_faces, restored_faces, restored_img = restorer.enhance(
             input_img,
             has_aligned=False,
             only_center_face=False,
             paste_back=True,
-            weight=0.5)
+            weight=None)
 
         # save restored img
         if restored_img is not None:
@@ -158,11 +173,16 @@ async def process_frames(params = Body(...)) -> dict:
         print(f'Results: {output_path}')
     else:
         print(f'Results are in the [{output_path}] folder.')
+    
+    seconds = '{:.2f}'.format((time() - start_time_upscale) % 60)
+    print(f'Upscale in: [{seconds}] seconds.')
 
     output_upscale_base64 = to_base64_str(output_path) 
     return {"output": output_upscale_base64}
 
 
+port = int(os.getenv('PORT', 3000))
+
 def launch():
     app.include_router(router)
-    uvicorn.run(app, host="0.0.0.0", port=3000)
+    uvicorn.run(app, host="0.0.0.0", port=port)
