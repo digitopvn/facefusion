@@ -6,6 +6,7 @@ from basicsr.utils.download_util import load_file_from_url
 from facexlib.utils.face_restoration_helper import FaceRestoreHelper
 from torchvision.transforms.functional import normalize
 from time import time
+import concurrent.futures
 
 from gfpgan.archs.gfpgan_bilinear_arch import GFPGANBilinear
 from gfpgan.archs.gfpganv1_arch import GFPGANv1
@@ -34,6 +35,49 @@ if 'params_ema' in loadnet:
     keyname = 'params_ema'
 else:
     keyname = 'params'
+
+
+def process_face(cropped_face, device, gfpgan, weight):
+    # prepare data
+    cropped_face_t = img2tensor(cropped_face / 255., bgr2rgb=True, float32=True)
+    normalize(cropped_face_t, (0.5, 0.5, 0.5), (0.5, 0.5, 0.5), inplace=True)
+    cropped_face_t = cropped_face_t.unsqueeze(0).to(device)
+
+    try:
+        start_time = time()
+
+        output = gfpgan(cropped_face_t, return_rgb=False, weight=weight)[0]
+
+        seconds = '{:.2f}'.format((time() - start_time) % 60)
+        print(f'3: [{seconds}] seconds.')
+
+        start_time = time()
+        # convert to image
+        restored_face = tensor2img(output.squeeze(0), rgb2bgr=True, min_max=(-1, 1))
+
+        seconds = '{:.2f}'.format((time() - start_time) % 60)
+        print(f'4: [{seconds}] seconds.')
+    except RuntimeError as error:
+        print(f'\tFailed inference for GFPGAN: {error}.')
+        restored_face = cropped_face
+
+    start_time = time()
+    restored_face = restored_face.astype('uint8')
+    seconds = '{:.2f}'.format((time() - start_time) % 60)
+    print(f'5: [{seconds}] seconds.')
+
+    return restored_face
+
+
+def run_parallel_face_restoration(face_helper, device, gfpgan, weight):
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        futures = [
+            executor.submit(process_face, cropped_face, device, gfpgan, weight)
+            for cropped_face in face_helper.cropped_faces
+        ]
+        for future in concurrent.futures.as_completed(futures):
+            restored_face = future.result()
+            face_helper.add_restored_face(restored_face)
 
 
 class GFPGANer():
@@ -155,33 +199,8 @@ class GFPGANer():
         seconds = '{:.2f}'.format((time() - start_time) % 60)
         print(f'2: [{seconds}] seconds.')
 
-        # face restoration
-        for cropped_face in self.face_helper.cropped_faces:
-            # prepare data
-            cropped_face_t = img2tensor(cropped_face / 255., bgr2rgb=True, float32=True)
-            normalize(cropped_face_t, (0.5, 0.5, 0.5), (0.5, 0.5, 0.5), inplace=True)
-            cropped_face_t = cropped_face_t.unsqueeze(0).to(self.device)
-
-            try:
-                start_time = time()
-
-                output = self.gfpgan(cropped_face_t, return_rgb=False, weight=weight)[0]
-
-                seconds = '{:.2f}'.format((time() - start_time) % 60)
-                print(f'3: [{seconds}] seconds.')
-
-                start_time = time()
-                # convert to image
-                restored_face = tensor2img(output.squeeze(0), rgb2bgr=True, min_max=(-1, 1))
-
-                seconds = '{:.2f}'.format((time() - start_time) % 60)
-                print(f'4: [{seconds}] seconds.')
-            except RuntimeError as error:
-                print(f'\tFailed inference for GFPGAN: {error}.')
-                restored_face = cropped_face
-
-            restored_face = restored_face.astype('uint8')
-            self.face_helper.add_restored_face(restored_face)
+        # Example usage
+        run_parallel_face_restoration(self.face_helper, self.device, self.gfpgan, weight)
 
         if not has_aligned and paste_back:
             # upsample the background
