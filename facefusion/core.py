@@ -1,4 +1,4 @@
-from facefusion.vision import read_image, read_static_images, detect_image_resolution, restrict_video_fps, create_image_resolutions, get_video_frame, detect_video_resolution, detect_video_fps, restrict_video_resolution, restrict_image_resolution, create_video_resolutions, pack_resolution, unpack_resolution
+from facefusion.vision import read_image, read_static_image, read_static_images, detect_image_resolution, restrict_video_fps, create_image_resolutions, get_video_frame, detect_video_resolution, detect_video_fps, restrict_video_resolution, restrict_image_resolution, create_video_resolutions, pack_resolution, unpack_resolution
 from facefusion.ffmpeg import extract_frames, merge_video, copy_image, finalize_image, restore_audio, replace_audio
 from facefusion.filesystem import list_directory, get_temp_frame_paths, create_temp, move_temp, clear_temp, is_image, is_video, filter_audio_paths
 from facefusion.statistics import conditional_log_statistics
@@ -10,7 +10,9 @@ from facefusion.processors.frame.core import get_frame_processors_modules, load_
 from facefusion.content_analyser import analyse_image, analyse_video
 from facefusion import face_analyser, face_masker, content_analyser, config, process_manager, metadata, logger, wording
 from facefusion.face_store import get_reference_faces, append_reference_face
-from facefusion.face_analyser import get_one_face, get_average_face
+from facefusion.face_analyser import get_one_face, get_average_face, get_many_faces
+from PIL import Image
+import tempfile
 import facefusion.globals
 import facefusion.choices
 from argparse import ArgumentParser, HelpFormatter
@@ -104,6 +106,40 @@ def cli() -> None:
 	group_uis = program.add_argument_group('uis')
 	group_uis.add_argument('--ui-layouts', help = wording.get('help.ui_layouts').format(choices = ', '.join(available_ui_layouts)), default = config.get_str_list('uis.ui_layouts', 'default'), nargs = '+')
 	run(program)
+
+
+def get_location_frames(reference_frame):
+    faces = get_many_faces(reference_frame)
+    face = faces[0]
+    
+    # for face in faces:
+    start_x, start_y, end_x, end_y = map(int, face.bounding_box)
+    padding_x = int((end_x - start_x) * 0.25)
+    padding_y = int((end_y - start_y) * 0.25)
+    start_x = max(0, start_x - padding_x)
+    start_y = max(0, start_y - padding_y)
+    end_x = max(0, end_x + padding_x)
+    end_y = max(0, end_y + padding_y)
+    crop_frame = [start_x, start_y, end_x, end_y]
+    return crop_frame
+
+
+def crop_image_by_location(image_path: str, crop_frame, cropFaceSourcePath: str) -> None:
+    image = Image.open(image_path)
+    width, height = image.size
+
+    (start_x, start_y, end_x, end_y) = map(int, crop_frame)
+    if end_x > width:
+        end_x = width
+    if end_y > height:
+        end_y = height
+
+    cropped_image = image.crop((start_x, start_y, end_x, end_y))
+    cropped_image.save(cropFaceSourcePath)
+
+
+def get_face_process(source_path) -> None:
+	return get_location_frames(read_static_image(source_path))
 
 
 def apply_args(program : ArgumentParser) -> None:
@@ -242,22 +278,24 @@ def conditional_process() -> None:
 
 
 def conditional_append_reference_faces() -> None:
-	if 'reference' in facefusion.globals.face_selector_mode and not get_reference_faces():
-		source_frames = read_static_images(facefusion.globals.source_paths)
-		source_face = get_average_face(source_frames)
-		if is_video(facefusion.globals.target_path):
-			reference_frame = get_video_frame(facefusion.globals.target_path, facefusion.globals.reference_frame_number)
-		else:
-			reference_frame = read_image(facefusion.globals.target_path)
-		reference_face = get_one_face(reference_frame, facefusion.globals.reference_face_position)
-		append_reference_face('origin', reference_face)
-		if source_face and reference_face:
-			for frame_processor_module in get_frame_processors_modules(facefusion.globals.frame_processors):
-				abstract_reference_frame = frame_processor_module.get_reference_frame(source_face, reference_face, reference_frame)
-				if numpy.any(abstract_reference_frame):
-					reference_frame = abstract_reference_frame
-					reference_face = get_one_face(reference_frame, facefusion.globals.reference_face_position)
-					append_reference_face(frame_processor_module.__name__, reference_face)
+	source_frames = read_static_images(facefusion.globals.source_paths)
+	source_face = get_average_face(source_frames)
+
+	reference_frame = read_image(facefusion.globals.target_path)
+	reference_face = get_one_face(reference_frame, facefusion.globals.reference_face_position)
+
+	# tempDir = tempfile.mkdtemp()
+	# cropFaceSourcePath = os.path.join(tempDir, os.path.basename(f'target-face.png'))
+	# firstFace = get_face_process(facefusion.globals.target_path)
+	# crop_image_by_location(facefusion.globals.target_path, firstFace, cropFaceSourcePath)
+	append_reference_face('origin', reference_face)
+	if source_face and reference_face:
+		for frame_processor_module in get_frame_processors_modules(facefusion.globals.frame_processors):
+			abstract_reference_frame = frame_processor_module.get_reference_frame(source_face, reference_face, reference_frame)
+			if numpy.any(abstract_reference_frame):
+				reference_frame = abstract_reference_frame
+				reference_face = get_one_face(reference_frame, facefusion.globals.reference_face_position)
+				append_reference_face(frame_processor_module.__name__, reference_face)
 
 
 def process_image(start_time : float) -> None:

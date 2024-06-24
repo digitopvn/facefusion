@@ -44,27 +44,16 @@ def process_face(cropped_face, device, gfpgan, weight):
     cropped_face_t = cropped_face_t.unsqueeze(0).to(device)
 
     try:
-        start_time = time()
 
         output = gfpgan(cropped_face_t, return_rgb=False, weight=weight)[0]
 
-        seconds = '{:.2f}'.format((time() - start_time) % 60)
-        print(f'3: [{seconds}] seconds.')
-
-        start_time = time()
         # convert to image
         restored_face = tensor2img(output.squeeze(0), rgb2bgr=True, min_max=(-1, 1))
 
-        seconds = '{:.2f}'.format((time() - start_time) % 60)
-        print(f'4: [{seconds}] seconds.')
     except RuntimeError as error:
-        print(f'\tFailed inference for GFPGAN: {error}.')
         restored_face = cropped_face
 
-    start_time = time()
     restored_face = restored_face.astype('uint8')
-    seconds = '{:.2f}'.format((time() - start_time) % 60)
-    print(f'5: [{seconds}] seconds.')
 
     return restored_face
 
@@ -153,51 +142,29 @@ class GFPGANer():
             device=self.device,
             model_rootpath='gfpgan/weights')
 
-        start_time = time()
-
         self.gfpgan.load_state_dict(loadnet[keyname], strict=True)
         self.gfpgan.eval()
         self.gfpgan = self.gfpgan.to(self.device)
-        seconds = '{:.2f}'.format((time() - start_time) % 60)
-        print(f'-1: [{seconds}] seconds.')
 
     @torch.no_grad()
     def enhance(self, img, has_aligned=False, only_center_face=False, paste_back=True, weight=0.5):
-        start_time = time()
 
         self.face_helper.clean_all()
 
-        seconds = '{:.2f}'.format((time() - start_time) % 60)
-        print(f'1: [{seconds}] seconds.')
-
-        start_time = time()
-        
         if has_aligned:  # the inputs are already aligned
             img = cv2.resize(img, (512, 512))
             self.face_helper.cropped_faces = [img]
         else:
 
-            start_time = time()
             self.face_helper.read_image(img)
-            seconds = '{:.2f}'.format((time() - start_time) % 60)
-            print(f'1a: [{seconds}] seconds.')
 
-            start_time = time()
             # get face landmarks for each face
             self.face_helper.get_face_landmarks_5(only_center_face=only_center_face, eye_dist_threshold=5)
-            seconds = '{:.2f}'.format((time() - start_time) % 60)
-            print(f'1b: [{seconds}] seconds.')
 
             # eye_dist_threshold=5: skip faces whose eye distance is smaller than 5 pixels
             # TODO: even with eye_dist_threshold, it will still introduce wrong detections and restorations.
             # align and warp each face
-            start_time = time()
             self.face_helper.align_warp_face()
-            seconds = '{:.2f}'.format((time() - start_time) % 60)
-            print(f'1c: [{seconds}] seconds.')
-
-        seconds = '{:.2f}'.format((time() - start_time) % 60)
-        print(f'2: [{seconds}] seconds.')
 
         # Example usage
         run_parallel_face_restoration(self.face_helper, self.device, self.gfpgan, weight)
