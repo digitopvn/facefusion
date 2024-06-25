@@ -30,6 +30,9 @@ def load_env_file(filepath):
 # Load the .env file
 load_env_file('.env')
 
+port = int(os.getenv('PORT', 3000))
+debug = bool(os.getenv('DEBUG', True))
+
 app = FastAPI()
 router = APIRouter()
 
@@ -94,7 +97,7 @@ def apply_args():
         globals.output_video_fps = normalize_fps(globals.output_video_fps) or detect_video_fps(globals.target_path)
 
 
-def upscaleImg(img_path:str, ext:str, output_path:str ):
+def upscaleImg(img_path:str, ext:str, output_path:str, upscale=1 ):
     start_time_upscale = time()
 
     img_name = os.path.basename(img_path)
@@ -104,7 +107,7 @@ def upscaleImg(img_path:str, ext:str, output_path:str ):
         
     restorer = GFPGANer(
         model_path=model_path,
-        upscale=1,
+        upscale=upscale,
         arch=arch,
         channel_multiplier=channel_multiplier,
         bg_upsampler=bg_upsampler)
@@ -178,7 +181,7 @@ def crop_image_by_location(image_path: str, crop_frame, cropFaceSourcePath: str)
     # cropped_image.save(cropFaceSourcePath)
     cropped_image_path = os.path.join( tempfile.mkdtemp(), os.path.basename(f'source-face-small.png'))
     cropped_image.save(cropped_image_path)
-    upscaleImg(cropped_image_path, "png", cropFaceSourcePath)
+    upscaleImg(cropped_image_path, "png", cropFaceSourcePath, 2)
 
 
 def get_face_process(source_path) -> None:
@@ -187,48 +190,50 @@ def get_face_process(source_path) -> None:
 
 @router.post("/")
 async def process_frames(params = Body(...)) -> dict:
-    update_global_variables(params)
-    sources = params['sources']
-    source_extension = params['source_extension']
-    source_paths = []
+    try:
+        update_global_variables(params)
+        sources = params['sources']
+        source_extension = params['source_extension']
+        source_paths = []
 
-    tempDir = tempfile.mkdtemp()
+        tempDir = tempfile.mkdtemp()
+        print(tempDir)
 
-    for i, source in enumerate(sources):
-        source_path = os.path.join(tempDir, os.path.basename(f'source{i}.{source_extension}'))
-        save_file(source_path, source)
-        source_paths.append(source_path)
+        for i, source in enumerate(sources):
+            source_path = os.path.join(tempDir, os.path.basename(f'source{i}.{source_extension}'))
+            save_file(source_path, source)
+            # source_paths.append(source_path)
 
-    globals.face_analyser_order="best-worst"
-    firstFace = get_face_process(source_paths[0])
+        globals.face_analyser_order="best-worst"
+        firstFace = get_face_process(source_path)
 
-    cropFaceSourcePath = os.path.join(tempDir, os.path.basename(f'source-face.png'))
-    crop_image_by_location(source_paths[0], firstFace, cropFaceSourcePath)
+        cropFaceSourcePath = os.path.join(tempDir, os.path.basename(f'source-face.png'))
+        crop_image_by_location(source_path, firstFace, cropFaceSourcePath)
+        source_paths.append(cropFaceSourcePath)
 
-    print(f'cropFaceSourcePath :>> {cropFaceSourcePath}')
+        print(f'cropFaceSourcePath :>> {cropFaceSourcePath}')
 
-    target = params['target']
-    target_extension = params['target_extension']
-    target_path = os.path.join(tempDir, os.path.basename(f'target.{target_extension}'))
-    save_file(target_path, target)
-    globals.source_paths = source_paths
-    globals.target_path = target_path
-    globals.output_path = os.path.join(tempDir, os.path.basename(f'output.{target_extension}'))
-    apply_args()
-    print(globals.source_paths)
-    print(globals.target_path)
-    print(globals.output_path)
-    conditional_process()
-    # output = to_base64_str(globals.output_path)
-    output_path = os.path.join(tempDir, os.path.basename(f'output-upscale.{target_extension}'))
+        target = params['target']
+        target_extension = params['target_extension']
+        target_path = os.path.join(tempDir, os.path.basename(f'target.{target_extension}'))
+        save_file(target_path, target)
+        globals.source_paths = source_paths
+        globals.target_path = target_path
+        globals.output_path = os.path.join(tempDir, os.path.basename(f'output.{target_extension}'))
+        apply_args()
+        print(globals.source_paths)
+        print(globals.target_path)
+        print(globals.output_path)
+        conditional_process()
+        # output = to_base64_str(globals.output_path)
+        output_path = os.path.join(tempDir, os.path.basename(f'output-upscale.{target_extension}'))
 
-    upscaleImg(globals.output_path, target_extension, output_path)
-    
-    output_upscale_base64 = to_base64_str(output_path) 
-    return {"output": output_upscale_base64}
+        upscaleImg(globals.output_path, target_extension, output_path)
 
-
-port = int(os.getenv('PORT', 3000))
+        output_upscale_base64 = to_base64_str(output_path) 
+        return {"output": output_upscale_base64}
+    except (OSError, ValueError):
+        return 0
 
 
 def launch():
