@@ -43,9 +43,9 @@ for element in "${list[@]}"; do
   for server in "${list[@]}"; do
     IFS=' ' read -r server_ip server_name <<< "$server"
     if [ "$server_ip" == "$ip" ]; then
-      newText+="server $server_ip max_fails=1 fail_timeout=10s;\n"
-    else
       newText+="server $server_ip max_fails=1 fail_timeout=10s down;\n"
+    else
+      newText+="server $server_ip max_fails=1 fail_timeout=10s;\n"
     fi
   done
 
