@@ -67,7 +67,7 @@ for element in "${list[@]}"; do
     runCmd "sudo nginx -t && sudo nginx -s reload"
     wait_for 60
 
-    runCmd "pm2 restart $name"
+    runCmd "/home/ubuntu/.nvm/versions/node/v20.15.1/bin/pm2 restart $name"
     wait_for 10
   fi
 done
