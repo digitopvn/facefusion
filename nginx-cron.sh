@@ -37,9 +37,9 @@ wait_for() {
   sleep $timeout
 }
 
-for element in "${list[@]}"; do
-  IFS=' ' read -r ip name <<< "$element"
-  newText=""
+updateNginxConfig() {
+  local ip=$1
+  local newText=""
   for server in "${list[@]}"; do
     IFS=' ' read -r server_ip server_name <<< "$server"
     if [ "$server_ip" == "$ip" ]; then
@@ -54,13 +54,37 @@ for element in "${list[@]}"; do
   echo -e "$content" > /etc/nginx/conf.d/upstream_proxy.conf
   if [ $? -ne 0 ]; then
     echo "Failed to write to /etc/nginx/conf.d/upstream_proxy.conf"
-    continue
+    return 1
   fi
-  echo "Updated Nginx config for $name"
+  echo "Updated Nginx config for $ip"
+  return 0
+}
 
-  runCmd "sudo nginx -t && sudo nginx -s reload"
-  wait_for 60
+for element in "${list[@]}"; do
+  IFS=' ' read -r ip name <<< "$element"
+  
+  if updateNginxConfig "$ip"; then
+    runCmd "sudo nginx -t && sudo nginx -s reload"
+    wait_for 10
 
-  runCmd "pm2 restart $name"
-  wait_for 10
+    runCmd "pm2 restart $name"
+    wait_for 2
+  fi
 done
+
+# Reset all servers to active
+newText=""
+for server in "${list[@]}"; do
+  IFS=' ' read -r server_ip server_name <<< "$server"
+  newText+="server $server_ip max_fails=1 fail_timeout=10s;\n"
+done
+
+content=$(newTextNginx "$newText")
+
+echo -e "$content" > /etc/nginx/conf.d/upstream_proxy.conf
+if [ $? -ne 0 ]; then
+  echo "Failed to write to /etc/nginx/conf.d/upstream_proxy.conf"
+else
+  echo "Reset Nginx config to all servers active"
+  runCmd "sudo nginx -t && sudo nginx -s reload"
+fi
