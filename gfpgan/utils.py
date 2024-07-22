@@ -4,7 +4,7 @@ import torch
 from basicsr.utils import img2tensor, tensor2img
 from basicsr.utils.download_util import load_file_from_url
 from facexlib.utils.face_restoration_helper import FaceRestoreHelper
-from torchvision.transforms.functional import normalize
+from torchvision.transforms.v2.functional import normalize
 from time import time
 import concurrent.futures
 
