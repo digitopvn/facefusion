@@ -2,6 +2,7 @@ from typing import List, Any
 import numpy as np
 import onnxruntime as ort
 
+
 def apply_execution_provider_options(execution_providers: List[str]) -> List[Any]:
 	execution_providers_with_options : List[Any] = []
 
@@ -33,7 +34,8 @@ def run_inference(model_path):
     outputs = session.run(None, {input_name: dummy_input})
     print("Output:", outputs)
 
+
 if __name__ == "__main__":
     check_cuda_availability()
     model_path = './.assets/models/codeformer.onnx'
-    run_inference(model_path)ß
+    run_inference(model_path)

@@ -8,9 +8,9 @@ tqdm==4.66.2
 scipy==1.12.0
 basicsr==1.4.2
 realesrgan==0.3.0
-torch==2.1.0+cu118
-torchvision==0.16.0+cu118
-torchaudio==2.1.0+cu118
+torch
+torchvision
+torchaudio
 facexlib>=0.2.5
 lmdb
 pyyaml
@@ -22,3 +22,4 @@ opennsfw2
 tensorflow
 python-dotenv
 numpy==1.26.4
+protobuf==4.25.3
