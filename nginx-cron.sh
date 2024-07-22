@@ -65,10 +65,10 @@ for element in "${list[@]}"; do
   
   if updateNginxConfig "$ip"; then
     runCmd "sudo nginx -t && sudo nginx -s reload"
-    wait_for 10
+    wait_for 60
 
     runCmd "pm2 restart $name"
-    wait_for 2
+    wait_for 10
   fi
 done
 
