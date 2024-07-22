@@ -1,26 +1,66 @@
-# #!/bin/bash
+#!/bin/bash
 
-# CONFIG_FILE="/etc/nginx/sites-available/load_balancer"
-# HOUR=$(date +%H)
+list=(
+  "localhost:3050 facefucion-pod-0"
+  "localhost:3051 facefucion-pod-1"
+  "localhost:3052 facefucion-pod-2"
+  "localhost:3053 facefucion-pod-3"
+  "localhost:3054 facefucion-pod-4"
+  "localhost:3055 facefucion-pod-5"
+  "localhost:3056 facefucion-pod-6"
+  "localhost:3057 facefucion-pod-7"
+)
 
+newTextNginx() {
+  local newServer=$1
+  echo "upstream faceswap_zii_vn {
+  zone upstreams;
 
-# sed -i 's/server backend1.example.com weight=0;/server backend1.example.com weight=10;/g' $CONFIG_FILE
-# sed -i 's/server backend2.example.com weight=10;/server backend2.example.com weight=0;/g' $CONFIG_FILE
+  $newServer
 
-# pm2 restart server-2
+  keepalive 16;
+}
+#End"
+}
 
+runCmd() {
+  local command=$1
+  eval $command
+  if [ $? -ne 0 ]; then
+    echo "Command failed: $command"
+    exit 1
+  fi
+}
 
-# if (( HOUR % 2 == 0 )); then
-#     sed -i 's/server backend1.example.com weight=0;/server backend1.example.com weight=10;/g' $CONFIG_FILE
-#     sed -i 's/server backend2.example.com weight=10;/server backend2.example.com weight=0;/g' $CONFIG_FILE
-# else
-#     sed -i 's/server backend1.example.com weight=10;/server backend1.example.com weight=0;/g' $CONFIG_FILE
-#     sed -i 's/server backend2.example.com weight=0;/server backend2.example.com weight=10;/g' $CONFIG_FILE
-# fi
+wait_for() {
+  local timeout=$1
+  sleep $timeout
+}
 
-# # Test the Nginx configuration and reload if successful
-# if sudo nginx -t; then
-#     sudo nginx -s reload
-# else
-#     echo "Nginx configuration test failed. Not reloading."
-# fi
+for element in "${list[@]}"; do
+  IFS=' ' read -r ip name <<< "$element"
+  newText=""
+  for server in "${list[@]}"; do
+    IFS=' ' read -r server_ip server_name <<< "$server"
+    if [ "$server_ip" == "$ip" ]; then
+      newText+="server $server_ip max_fails=1 fail_timeout=10s;\n"
+    else
+      newText+="server $server_ip max_fails=1 fail_timeout=10s down;\n"
+    fi
+  done
+
+  content=$(newTextNginx "$newText")
+
+  echo -e "$content" > /etc/nginx/conf.d/upstream_proxy.conf
+  if [ $? -ne 0 ]; then
+    echo "Failed to write to /etc/nginx/conf.d/upstream_proxy.conf"
+    continue
+  fi
+  echo "Updated Nginx config for $name"
+
+  runCmd "sudo nginx -t && sudo nginx -s reload"
+  wait_for 60
+
+  runCmd "pm2 restart $name"
+  wait_for 10
+done
