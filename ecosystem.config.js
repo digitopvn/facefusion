@@ -11,8 +11,7 @@ module.exports = {
 			args: ["--api", "--face-enhancer-blend", 35],
 			autorestart: true,
 			// interpreter: "/usr/bin/python3", // Path to your Python interpreter
-			interpreter:
-				"/mnt/digitop_18TB/please-no-not-delete/miniconda3/envs/py310/bin/python",
+			interpreter: process.env.INTERPRETER,
 		},
 	],
 };
