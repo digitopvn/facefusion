@@ -431,38 +431,36 @@ def get_average_face(vision_frames : List[VisionFrame], position : int = 0) -> O
 def get_many_faces(vision_frame : VisionFrame) -> List[Face]:
 	faces = []
 	try:
-		faces_cache = get_static_faces(vision_frame)
-		if faces_cache:
-			faces = faces_cache
-		else:
-			bounding_box_list = []
-			face_landmark_5_list = []
-			score_list = []
+		# faces_cache = get_static_faces(vision_frame)
+		bounding_box_list = []
+		face_landmark_5_list = []
+		score_list = []
 
-			if facefusion.globals.face_detector_model in [ 'many', 'retinaface']:
-				bounding_box_list_retinaface, face_landmark_5_list_retinaface, score_list_retinaface = detect_with_retinaface(vision_frame, facefusion.globals.face_detector_size)
-				bounding_box_list.extend(bounding_box_list_retinaface)
-				face_landmark_5_list.extend(face_landmark_5_list_retinaface)
-				score_list.extend(score_list_retinaface)
-			if facefusion.globals.face_detector_model in [ 'many', 'scrfd' ]:
-				bounding_box_list_scrfd, face_landmark_5_list_scrfd, score_list_scrfd = detect_with_scrfd(vision_frame, facefusion.globals.face_detector_size)
-				bounding_box_list.extend(bounding_box_list_scrfd)
-				face_landmark_5_list.extend(face_landmark_5_list_scrfd)
-				score_list.extend(score_list_scrfd)
-			if facefusion.globals.face_detector_model in [ 'many', 'yoloface' ]:
-				bounding_box_list_yoloface, face_landmark_5_list_yoloface, score_list_yoloface = detect_with_yoloface(vision_frame, facefusion.globals.face_detector_size)
-				bounding_box_list.extend(bounding_box_list_yoloface)
-				face_landmark_5_list.extend(face_landmark_5_list_yoloface)
-				score_list.extend(score_list_yoloface)
-			if facefusion.globals.face_detector_model in [ 'yunet' ]:
-				bounding_box_list_yunet, face_landmark_5_list_yunet, score_list_yunet = detect_with_yunet(vision_frame, facefusion.globals.face_detector_size)
-				bounding_box_list.extend(bounding_box_list_yunet)
-				face_landmark_5_list.extend(face_landmark_5_list_yunet)
-				score_list.extend(score_list_yunet)
-			if bounding_box_list and face_landmark_5_list and score_list:
-				faces = create_faces(vision_frame, bounding_box_list, face_landmark_5_list, score_list)
-			if faces:
-				set_static_faces(vision_frame, faces)
+		if facefusion.globals.face_detector_model in [ 'many', 'retinaface']:
+			bounding_box_list_retinaface, face_landmark_5_list_retinaface, score_list_retinaface = detect_with_retinaface(vision_frame, facefusion.globals.face_detector_size)
+			bounding_box_list.extend(bounding_box_list_retinaface)
+			face_landmark_5_list.extend(face_landmark_5_list_retinaface)
+			score_list.extend(score_list_retinaface)
+		if facefusion.globals.face_detector_model in [ 'many', 'scrfd' ]:
+			bounding_box_list_scrfd, face_landmark_5_list_scrfd, score_list_scrfd = detect_with_scrfd(vision_frame, facefusion.globals.face_detector_size)
+			bounding_box_list.extend(bounding_box_list_scrfd)
+			face_landmark_5_list.extend(face_landmark_5_list_scrfd)
+			score_list.extend(score_list_scrfd)
+		if facefusion.globals.face_detector_model in [ 'many', 'yoloface' ]:
+			bounding_box_list_yoloface, face_landmark_5_list_yoloface, score_list_yoloface = detect_with_yoloface(vision_frame, facefusion.globals.face_detector_size)
+			bounding_box_list.extend(bounding_box_list_yoloface)
+			face_landmark_5_list.extend(face_landmark_5_list_yoloface)
+			score_list.extend(score_list_yoloface)
+		if facefusion.globals.face_detector_model in [ 'yunet' ]:
+			bounding_box_list_yunet, face_landmark_5_list_yunet, score_list_yunet = detect_with_yunet(vision_frame, facefusion.globals.face_detector_size)
+			bounding_box_list.extend(bounding_box_list_yunet)
+			face_landmark_5_list.extend(face_landmark_5_list_yunet)
+			score_list.extend(score_list_yunet)
+		if bounding_box_list and face_landmark_5_list and score_list:
+			faces = create_faces(vision_frame, bounding_box_list, face_landmark_5_list, score_list)
+		if faces:
+			set_static_faces(vision_frame, faces)
+			
 		if facefusion.globals.face_analyser_order:
 			faces = sort_by_order(faces, facefusion.globals.face_analyser_order)
 		if facefusion.globals.face_analyser_age:

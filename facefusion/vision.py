@@ -9,7 +9,7 @@ from facefusion.choices import image_template_sizes, video_template_sizes
 from facefusion.filesystem import is_image, is_video
 
 
-@lru_cache(maxsize = 128)
+@lru_cache(maxsize = 512)
 def read_static_image(image_path : str) -> Optional[VisionFrame]:
 	return read_image(image_path)
 

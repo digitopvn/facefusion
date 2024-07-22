@@ -13,9 +13,16 @@ from basicsr.utils import imwrite
 from facefusion.vision import read_static_image
 from facefusion.face_analyser import get_many_faces
 from PIL import Image
+from facefusion.processors.frame import globals as frame_processors_globals
+import datetime
 
+globals.face_analyser_order="best-worst"
+frame_processors_globals.face_enhancer_blend = 35
+globals.face_mask_blur = .15
 
 # Define a function to load .env file
+
+
 def load_env_file(filepath):
     with open(filepath) as f:
         for line in f:
@@ -32,6 +39,8 @@ load_env_file('.env')
 
 port = int(os.getenv('PORT', 3000))
 debug = bool(os.getenv('DEBUG', True))
+ouputFolderDir = str(os.getenv('OUPUT_FOLDER_DIR', os.path.join(os.getcwd(), "output")))
+
 
 app = FastAPI()
 router = APIRouter()
@@ -80,6 +89,10 @@ def apply_args():
     from facefusion.vision import is_image, is_video, detect_image_resolution, detect_video_resolution, detect_video_fps, create_image_resolutions, create_video_resolutions, pack_resolution
     from facefusion.normalizer import normalize_fps
     if is_image(globals.target_path):
+        globals.face_analyser_order="best-worst"
+        frame_processors_globals.face_enhancer_blend = 35
+        globals.face_mask_blur = .15
+
         output_image_resolution = detect_image_resolution(globals.target_path)
         output_image_resolutions = create_image_resolutions(output_image_resolution)
         if globals.output_image_resolution in output_image_resolutions:
@@ -151,41 +164,62 @@ def upscaleImg(img_path:str, ext:str, output_path:str, upscale=1 ):
 
 
 def get_location_frames(reference_frame):
-    faces = get_many_faces(reference_frame)
-    face = faces[0]
+    try:
+        faces = get_many_faces(reference_frame)
+        face = faces[0]
+        
+        # for face in faces:
+        start_x, start_y, end_x, end_y = map(int, face.bounding_box)
+        padding_x = int((end_x - start_x) * 0.25)
+        padding_y = int((end_y - start_y) * 0.25)
+        start_x = max(0, start_x - padding_x)
+        start_y = max(0, start_y - padding_y)
+        end_x = max(0, end_x + padding_x)
+        end_y = max(0, end_y + padding_y)
+        crop_frame = [start_x, start_y, end_x, end_y]
 
-    # for face in faces:
-    start_x, start_y, end_x, end_y = map(int, face.bounding_box)
-    padding_x = int((end_x - start_x) * 0.25)
-    padding_y = int((end_y - start_y) * 0.25)
-    start_x = max(0, start_x - padding_x)
-    start_y = max(0, start_y - padding_y)
-    end_x = max(0, end_x + padding_x)
-    end_y = max(0, end_y + padding_y)
-    crop_frame = [start_x, start_y, end_x, end_y]
-
-    return crop_frame
+        return crop_frame
+    except (OSError, ValueError):
+        raise ValueError("Face not found")
 
 
-def crop_image_by_location(image_path: str, crop_frame, cropFaceSourcePath: str) -> None:
+def crop_image_by_location(image_path: str, crop_frame, tempfilePath, cropFaceSourcePath: str) -> None:
     image = Image.open(image_path)
     width, height = image.size
 
     (start_x, start_y, end_x, end_y) = map(int, crop_frame)
-    if end_x > width:
+    if end_x > width:   
         end_x = width
     if end_y > height:
         end_y = height
 
     cropped_image = image.crop((start_x, start_y, end_x, end_y))
     # cropped_image.save(cropFaceSourcePath)
-    cropped_image_path = os.path.join( tempfile.mkdtemp(), os.path.basename(f'source-face-small.png'))
+    cropped_image_path = os.path.join(tempfilePath, os.path.basename(f'source-face.png'))
     cropped_image.save(cropped_image_path)
     upscaleImg(cropped_image_path, "png", cropFaceSourcePath, 2)
 
 
 def get_face_process(source_path) -> None:
 	return get_location_frames(read_static_image(source_path))
+
+
+def make_tmp_dir(): 
+    # Get the current time
+    current_time = datetime.datetime.now()
+    # Get the current date
+    current_date = current_time.strftime("%Y-%m-%d")
+    # Format the time as requested (hour 0-24)
+    formatted_time = current_time.strftime("%H-%M-%S-%f")[:-2]  # Remove the last two digits of microseconds
+
+    # Create the base directory path
+    base_dir = os.path.join(ouputFolderDir, current_date)
+    # Ensure the base directory exists
+    os.makedirs(base_dir, exist_ok=True)
+
+    # Create the temporary directory path
+    tempDir = tempfile.mkdtemp(prefix=formatted_time + "-", dir=base_dir)
+    return tempDir
 
 
 @router.post("/")
@@ -196,7 +230,8 @@ async def process_frames(params = Body(...)) -> dict:
         source_extension = params['source_extension']
         source_paths = []
 
-        tempDir = tempfile.mkdtemp()
+        tempDir = make_tmp_dir()
+
         print(tempDir)
 
         for i, source in enumerate(sources):
@@ -204,11 +239,10 @@ async def process_frames(params = Body(...)) -> dict:
             save_file(source_path, source)
             # source_paths.append(source_path)
 
-        globals.face_analyser_order="best-worst"
         firstFace = get_face_process(source_path)
 
-        cropFaceSourcePath = os.path.join(tempDir, os.path.basename(f'source-face.png'))
-        crop_image_by_location(source_path, firstFace, cropFaceSourcePath)
+        cropFaceSourcePath = os.path.join(tempDir, os.path.basename(f'source-face-upscale.png'))
+        crop_image_by_location(source_path, firstFace, tempDir, cropFaceSourcePath)
         source_paths.append(cropFaceSourcePath)
 
         print(f'cropFaceSourcePath :>> {cropFaceSourcePath}')
@@ -226,11 +260,17 @@ async def process_frames(params = Body(...)) -> dict:
         print(globals.output_path)
         conditional_process()
         # output = to_base64_str(globals.output_path)
-        output_path = os.path.join(tempDir, os.path.basename(f'output-upscale.{target_extension}'))
+        output_path = os.path.join(tempDir, os.path.basename(f'output-upscale-1.{target_extension}'))
 
         upscaleImg(globals.output_path, target_extension, output_path)
 
-        output_upscale_base64 = to_base64_str(output_path) 
+        output_path_2 = os.path.join(tempDir, os.path.basename(f'output-upscale-2.{target_extension}'))
+        
+        upscaleImg(output_path, target_extension, output_path_2)
+        
+        print(output_path_2)
+
+        output_upscale_base64 = to_base64_str(output_path_2) 
         return {"output": output_upscale_base64}
     except (OSError, ValueError):
         return 0

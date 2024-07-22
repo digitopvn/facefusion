@@ -7,7 +7,7 @@ from facefusion.normalizer import normalize_output_path, normalize_padding, norm
 from facefusion.execution import encode_execution_providers, decode_execution_providers
 from facefusion.common_helper import create_metavar, get_first
 from facefusion.processors.frame.core import get_frame_processors_modules, load_frame_processor_module
-from facefusion.content_analyser import analyse_image, analyse_video
+from facefusion.content_analyser import analyse_image, analyse_video, clear_content_analyser
 from facefusion import face_analyser, face_masker, content_analyser, config, process_manager, metadata, logger, wording
 from facefusion.face_store import get_reference_faces, append_reference_face
 from facefusion.face_analyser import get_one_face, get_average_face, get_many_faces
@@ -24,6 +24,7 @@ import warnings
 import sys
 import signal
 import os
+
 
 os.environ['OMP_NUM_THREADS'] = '1'
 
@@ -331,6 +332,7 @@ def process_image(start_time : float) -> None:
 		conditional_log_statistics()
 	else:
 		logger.error(wording.get('processing_image_failed'), __name__.upper())
+
 	process_manager.end()
 
 
