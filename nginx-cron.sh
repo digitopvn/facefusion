@@ -1,5 +1,4 @@
 #!/bin/bash
-
 list=(
   "localhost:3050 facefucion-pod-0"
   "localhost:3051 facefucion-pod-1"
@@ -16,7 +15,7 @@ newTextNginx() {
   echo "upstream faceswap_zii_vn {
   zone upstreams;
 
-  $newServer
+$newServer
 
   keepalive 16;
 }
@@ -25,12 +24,20 @@ newTextNginx() {
 
 runCmd() {
   local command=$1
-  eval $command
+  local user=$2
+
+  if [ -n "$user" ]; then
+    su -c "export PATH=\$PATH:/home/ubuntu/.nvm/versions/node/v20.15.1/bin && $command" - "$user"
+  else
+    eval "$command"
+  fi
+
   if [ $? -ne 0 ]; then
     echo "Command failed: $command"
     exit 1
   fi
 }
+
 
 wait_for() {
   local timeout=$1
@@ -43,9 +50,9 @@ updateNginxConfig() {
   for server in "${list[@]}"; do
     IFS=' ' read -r server_ip server_name <<< "$server"
     if [ "$server_ip" == "$ip" ]; then
-      newText+="server $server_ip max_fails=1 fail_timeout=10s down;\n"
+      newText+="\tserver $server_ip max_fails=1 fail_timeout=10s down;\n"
     else
-      newText+="server $server_ip max_fails=1 fail_timeout=10s;\n"
+      newText+="\tserver $server_ip max_fails=1 fail_timeout=10s;\n"
     fi
   done
 
@@ -60,6 +67,7 @@ updateNginxConfig() {
   return 0
 }
 
+
 for element in "${list[@]}"; do
   IFS=' ' read -r ip name <<< "$element"
   
@@ -67,7 +75,7 @@ for element in "${list[@]}"; do
     runCmd "sudo nginx -t && sudo nginx -s reload"
     wait_for 60
 
-    runCmd "/home/ubuntu/.nvm/versions/node/v20.15.1/bin/pm2 restart $name"
+    runCmd "pm2 restart $name" "ubuntu"
     wait_for 10
   fi
 done
@@ -76,7 +84,7 @@ done
 newText=""
 for server in "${list[@]}"; do
   IFS=' ' read -r server_ip server_name <<< "$server"
-  newText+="server $server_ip max_fails=1 fail_timeout=10s;\n"
+  newText+="\tserver $server_ip max_fails=1 fail_timeout=10s;\n"
 done
 
 content=$(newTextNginx "$newText")
