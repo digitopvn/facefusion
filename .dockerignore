@@ -1,0 +1,11 @@
+.git/
+.gitignore
+.next/
+.dockerignore
+Dockerfile*
+docker-compose.yml
+node_modules/
+optimizer/
+out/
+gcloud-service-account.json
+__test__
