@@ -194,3 +194,89 @@ pyrightconfig.json
 
 init-image/upscale.jpg
 init-image/output.png
+
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.js
+.yarn/
+
+# testing
+/coverage
+
+# cypress
+cypress/screenshots
+cypress/videos
+
+# next.js
+/.next
+/out
+
+# next-sitemap
+public/robots.txt
+public/sitemap.xml
+public/sitemap-*.xml
+
+# cache
+.swc/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+Thumbs.db
+
+# diginext
+.fw/
+optimizer/node_modules/
+optimizer/yarn.lock
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.yarn
+.yarnrc
+.yarnrc.yml
+.yarn-integrity
+yarn.lock
+.pnp.cjs
+.pnp.loader.mjs
+package-lock.json
+pnpm-lock.yaml
+
+
+# dotenv local files
+.env
+.env*.local
+
+# local folder
+local
+
+# vercel
+.vercel
+
+# Ignore everything in the storage directory
+/storage/*
+# But exclude these files from being ignored
+!/storage/start-database.bat
+!/storage/start-database.sh
+!/storage/Dockerfile
+
+# Deployment
+deployment/deployment_dev1.yml
+deployment/deployment_dev1.yaml
+# build & release framework
+gcloud-service-account.json
+/log
+.temp
+public/uploads
+public/**/*-webp/
+public/**/*-thumb-webp/
+
+bun.lockb
+*.bun
