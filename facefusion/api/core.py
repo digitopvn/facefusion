@@ -116,66 +116,66 @@ def apply_args():
 
 
 def upscaleImg(img_path:str, ext:str, output_path:str, upscale=1 ):
-    command = f"python inference_gfpgan.py -v 1.4 -s {upscale} --ext {ext} -i {img_path} -o {output_path} --bg_upsampler none"
-    print(command)
-    # Run the command in the current directory
-    process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=os.getcwd())
-    # Capture the output and errors
-    stdout, stderr = process.communicate()
-    # try:
-    #     start_time_upscale = time()
+    # command = f"python inference_gfpgan.py -v 1.4 -s {upscale} --ext {ext} -i {img_path} -o {output_path} --bg_upsampler none"
+    # print(command)
+    # # Run the command in the current directory
+    # process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=os.getcwd())
+    # # Capture the output and errors
+    # stdout, stderr = process.communicate()
+    try:
+        start_time_upscale = time()
 
-    #     img_name = os.path.basename(img_path)
-    #     print(f'Processing {img_name} ...')
-    #     basename, ext = os.path.splitext(img_name)
-    #     input_img = cv2.imread(img_path, cv2.IMREAD_COLOR)
+        img_name = os.path.basename(img_path)
+        print(f'Processing {img_name} ...')
+        basename, ext = os.path.splitext(img_name)
+        input_img = cv2.imread(img_path, cv2.IMREAD_COLOR)
             
-    #     restorer = GFPGANer(
-    #         model_path=model_path,
-    #         upscale=upscale,
-    #         arch=arch,
-    #         channel_multiplier=channel_multiplier,
-    #         bg_upsampler=bg_upsampler)
+        restorer = GFPGANer(
+            model_path=model_path,
+            upscale=upscale,
+            arch=arch,
+            channel_multiplier=channel_multiplier,
+            bg_upsampler=bg_upsampler)
 
-    #     # restore faces and background if necessary
-    #     cropped_faces, restored_faces, restored_img = restorer.enhance(
-    #         input_img,
-    #         has_aligned=False,
-    #         only_center_face=False,
-    #         paste_back=True,
-    #         weight=None)
+        # restore faces and background if necessary
+        cropped_faces, restored_faces, restored_img = restorer.enhance(
+            input_img,
+            has_aligned=False,
+            only_center_face=False,
+            paste_back=True,
+            weight=None)
 
-    #     extension = ext
+        extension = ext
 
-    #     # save restored img
-    #     if restored_img is not None:
+        # save restored img
+        if restored_img is not None:
 
-    #         # save_restore_path = os.path.join(args.output, f'{basename}.{extension}')
-    #         # Check if args.output is a directory
-    #         if os.path.isdir(output_path):
-    #             save_restore_path = os.path.join(output_path, f'{basename}.{extension}')
-    #         # Check if args.output is a file
-    #         elif isFile(output_path):
-    #             save_restore_path = output_path
-    #         # If args.output is neither a file nor a directory, handle the error or create a new directory/file
-    #         else:
-    #             # Handle this situation as you see fit (e.g., raise an error, create a directory, etc.)
-    #             raise ValueError("args.output is neither a valid file nor a directory path")
+            # save_restore_path = os.path.join(args.output, f'{basename}.{extension}')
+            # Check if args.output is a directory
+            if os.path.isdir(output_path):
+                save_restore_path = os.path.join(output_path, f'{basename}.{extension}')
+            # Check if args.output is a file
+            elif isFile(output_path):
+                save_restore_path = output_path
+            # If args.output is neither a file nor a directory, handle the error or create a new directory/file
+            else:
+                # Handle this situation as you see fit (e.g., raise an error, create a directory, etc.)
+                raise ValueError("args.output is neither a valid file nor a directory path")
 
-    #         imwrite(restored_img, save_restore_path)
+            imwrite(restored_img, save_restore_path)
 
-    #     if(isFile(output_path)):
-    #         print(f'Results: {output_path}')
-    #     else:
-    #         print(f'Results are in the [{output_path}] folder.')
+        if(isFile(output_path)):
+            print(f'Results: {output_path}')
+        else:
+            print(f'Results are in the [{output_path}] folder.')
 
-    #     seconds = '{:.2f}'.format((time() - start_time_upscale) % 60)
-    #     print(f'Upscale in: [{seconds}] seconds.')
+        seconds = '{:.2f}'.format((time() - start_time_upscale) % 60)
+        print(f'Upscale in: [{seconds}] seconds.')
 
-    # except (OSError, ValueError):
-    #     print("ERROR @@")
-    #     sleep(2)
-    #     return upscaleImg(img_path, ext, output_path, upscale )
+    except (OSError, ValueError):
+        print("ERROR @@")
+        sleep(2)
+        return upscaleImg(img_path, ext, output_path, upscale )
    
 
 def get_location_frames(reference_frame):
@@ -282,32 +282,29 @@ async def process_frames(params = Body(...)) -> dict:
         seconds = '{:.2f}'.format((time() - start_time) % 60)
         print(f'Prepair in: [{seconds}] seconds.')
 
-        # sleep(0.3)
-        # conditional_process()
+        conditional_process()
         # output_path_2 = os.path.join(tempDir, os.path.basename(f'output-3.{target_extension}'))
         # Construct the command
-        command = f"python run.py --face-enhancer-blend 35 --headless -s {cropFaceSourcePath} -t {target_path} -o {globals.output_path} --execution-thread-count 1 --execution-providers cuda --face-mask-blur 0.15"
-        print(command)
-        # Run the command in the current directory
-        process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=os.getcwd())
-        # Capture the output and errors
-        stdout, stderr = process.communicate()
-        # # Print the output and errors
-        # print("Output:")
-        # print(stdout.decode())
-        # print("Errors:")
-        # print(stderr.decode())
-        # print(f'cropFaceSourcePath :>> {cropFaceSourcePath}')
-        # output_upscale_base64 = to_base64_str(output_path_2) 
-        # return {"output": output_upscale_base64}
+        # command = f"python run.py --face-enhancer-blend 35 --headless -s {cropFaceSourcePath} -t {target_path} -o {globals.output_path} --execution-thread-count 1 --execution-providers cuda --face-mask-blur 0.15"
+        # print(command)
+        # # Run the command in the current directory
+        # process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=os.getcwd())
+        # # Capture the output and errors
+        # stdout, stderr = process.communicate()
+        # # # Print the output and errors
+        # # print("Output:")
+        # # print(stdout.decode())
+        # # print("Errors:")
+        # # print(stderr.decode())
+        # # print(f'cropFaceSourcePath :>> {cropFaceSourcePath}')
+        # # output_upscale_base64 = to_base64_str(output_path_2) 
+        # # return {"output": output_upscale_base64}
 
         # output = to_base64_str(globals.output_path)
         output_path = os.path.join(tempDir, os.path.basename(f'output-upscale-1.{target_extension}'))
-
         upscaleImg(globals.output_path, target_extension, output_path)
-
-        # output_path_2 = os.path.join(tempDir, os.path.basename(f'output-upscale-2.{target_extension}'))
-        # upscaleImg(output_path, target_extension, output_path_2)
+        output_path_2 = os.path.join(tempDir, os.path.basename(f'output-upscale-2.{target_extension}'))
+        upscaleImg(output_path, target_extension, output_path_2)
         
         print(output_path)
 

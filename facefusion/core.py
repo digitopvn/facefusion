@@ -250,10 +250,10 @@ def run(program : ArgumentParser) -> None:
 	apply_args(program)
 	logger.init(facefusion.globals.log_level)
 
-	if facefusion.globals.api:
-		import facefusion.api.core as api
-		api.launch()
-		return
+	# if facefusion.globals.api:
+	# 	import facefusion.api.core as api
+	# 	api.launch()
+	# 	return
 	
 	if facefusion.globals.system_memory_limit > 0:
 		limit_system_memory(facefusion.globals.system_memory_limit)
@@ -299,7 +299,9 @@ def pre_check() -> bool:
 
 
 def conditional_process() -> None:
+
 	clear_reference_faces()
+
 	start_time = time()
 	for frame_processor_module in get_frame_processors_modules(facefusion.globals.frame_processors):
 		while not frame_processor_module.post_check():
@@ -381,7 +383,6 @@ def process_image(start_time : float) -> None:
 	if is_process_stopping():
 		return
 	
-	sleep(0.5)
 	# finalize image
 	logger.info(wording.get('finalizing_image').format(resolution = facefusion.globals.output_image_resolution), __name__.upper())
 	if finalize_image(facefusion.globals.target_path, normed_output_path, facefusion.globals.output_image_resolution):
@@ -397,7 +398,7 @@ def process_image(start_time : float) -> None:
 		logger.info(wording.get('processing_image_succeed').format(seconds = seconds), __name__.upper())
 		conditional_log_statistics()
 	else:
-		print(normed_output_path)
+		logger.error(normed_output_path, __name__.upper())
 		logger.error(wording.get('processing_image_failed'), __name__.upper())
 	process_manager.end()
 
