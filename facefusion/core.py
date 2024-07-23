@@ -383,15 +383,15 @@ def process_image(start_time : float) -> None:
 	if is_process_stopping():
 		return
 	
-	# finalize image
-	logger.info(wording.get('finalizing_image').format(resolution = facefusion.globals.output_image_resolution), __name__.upper())
-	if finalize_image(facefusion.globals.target_path, normed_output_path, facefusion.globals.output_image_resolution):
-		logger.debug(wording.get('finalizing_image_succeed'), __name__.upper())
-	else:
-		logger.warn(wording.get('finalizing_image_skipped'), __name__.upper())
-	# clear temp
-	logger.debug(wording.get('clearing_temp'), __name__.upper())
-	clear_temp(facefusion.globals.target_path)
+	# # finalize image
+	# logger.info(wording.get('finalizing_image').format(resolution = facefusion.globals.output_image_resolution), __name__.upper())
+	# if finalize_image(facefusion.globals.target_path, normed_output_path, facefusion.globals.output_image_resolution):
+	# 	logger.debug(wording.get('finalizing_image_succeed'), __name__.upper())
+	# else:
+	# 	logger.warn(wording.get('finalizing_image_skipped'), __name__.upper())
+	# # clear temp
+	# logger.debug(wording.get('clearing_temp'), __name__.upper())
+	# clear_temp(facefusion.globals.target_path)
 	# validate image
 	if is_image(normed_output_path):
 		seconds = '{:.2f}'.format((time() - start_time) % 60)
