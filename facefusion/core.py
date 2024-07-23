@@ -250,6 +250,11 @@ def run(program : ArgumentParser) -> None:
 	apply_args(program)
 	logger.init(facefusion.globals.log_level)
 
+	if facefusion.globals.api:
+		import facefusion.api.core as api
+		api.launch()
+		return
+	
 	if facefusion.globals.system_memory_limit > 0:
 		limit_system_memory(facefusion.globals.system_memory_limit)
 	if facefusion.globals.force_download:
