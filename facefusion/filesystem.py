@@ -30,9 +30,14 @@ def get_temp_file_path(target_path : str) -> str:
 
 
 def get_temp_directory_path(target_path : str) -> str:
-	target_name, _ = os.path.splitext(os.path.basename(target_path))
-	temp_directory_path = os.path.join(tempfile.gettempdir(), 'facefusion')
-	return os.path.join(temp_directory_path, target_name)
+	# target_name, _ = os.path.splitext(os.path.basename(target_path))
+	# temp_directory_path = os.path.join(tempfile.gettempdir(), 'facefusion')
+	# temp_dir = os.path.splitext(os.path.dirname(target_path))
+	# print(f"os.path.dirname(target_path) {os.path.dirname(target_path)}")
+	# print(f"temp_dir {temp_dir}")
+	# print(f"os.path.join(temp_directory_path, target_name) {os.path.join(temp_directory_path, target_name)}")
+	# return os.path.join(temp_directory_path, target_name)
+	return os.path.join(os.path.dirname(target_path))
 
 
 def create_temp(target_path : str) -> None:
@@ -50,13 +55,15 @@ def move_temp(target_path : str, output_path : str) -> None:
 
 
 def clear_temp(target_path : str) -> None:
-	temp_directory_path = get_temp_directory_path(target_path)
-	parent_directory_path = os.path.dirname(temp_directory_path)
+	# print("")
+	# temp_directory_path = get_temp_directory_path(target_path)
+	# parent_directory_path = os.path.dirname(temp_directory_path)
 
-	if not facefusion.globals.keep_temp and is_directory(temp_directory_path):
-		shutil.rmtree(temp_directory_path, ignore_errors = True)
-	if os.path.exists(parent_directory_path) and not os.listdir(parent_directory_path):
-		os.rmdir(parent_directory_path)
+	# if not facefusion.globals.keep_temp and is_directory(temp_directory_path):
+	# 	shutil.rmtree(temp_directory_path, ignore_errors = True)
+	# if os.path.exists(parent_directory_path) and not os.listdir(parent_directory_path):
+	# 	os.rmdir(parent_directory_path)
+	return 0
 
 
 def get_file_size(file_path : str) -> int:

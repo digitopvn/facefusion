@@ -90,8 +90,6 @@ def copy_image(target_path : str, temp_image_resolution : str) -> bool:
 
 def finalize_image(target_path : str, output_path : str, output_image_resolution : str) -> bool:
 	temp_file_path = get_temp_file_path(target_path)
-	print(temp_file_path)
-	print(target_path)
 	output_image_compression = round(31 - (facefusion.globals.output_image_quality * 0.31))
 	commands = [ '-i', temp_file_path, '-s', str(output_image_resolution), '-q:v', str(output_image_compression), '-y', output_path ]
 	return run_ffmpeg(commands)
