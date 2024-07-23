@@ -18,6 +18,8 @@ from facefusion.processors.frame import globals as frame_processors_globals
 from facefusion.ffmpeg import copy_image
 import shutil
 import subprocess
+import warnings
+warnings.filterwarnings('ignore')
 
 import datetime
 
