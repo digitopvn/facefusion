@@ -202,7 +202,7 @@ def crop_image_by_location(image_path: str, crop_frame, tempfilePath, cropFaceSo
     # cropped_image.save(cropFaceSourcePath)
     cropped_image_path = os.path.join(tempfilePath, os.path.basename(f'source-face.png'))
     cropped_image.save(cropped_image_path)
-    upscaleImg(cropped_image_path, "png", cropFaceSourcePath, 2)
+    # upscaleImg(cropped_image_path, "png", cropFaceSourcePath, 2)
 
 
 def get_face_process(source_path) -> None:
@@ -240,7 +240,7 @@ async def process_frames(params = Body(...)) -> dict:
 
         tempDir = make_tmp_dir()
 
-        print(tempDir)
+        print(f'Temp Dir: {tempDir}')
 
         for i, source in enumerate(sources):
             source_path = os.path.join(tempDir, os.path.basename(f'source{i}.{source_extension}'))
@@ -277,13 +277,12 @@ async def process_frames(params = Body(...)) -> dict:
 
         upscaleImg(globals.output_path, target_extension, output_path)
 
-        output_path_2 = os.path.join(tempDir, os.path.basename(f'output-upscale-2.{target_extension}'))
+        # output_path_2 = os.path.join(tempDir, os.path.basename(f'output-upscale-2.{target_extension}'))
+        # upscaleImg(output_path, target_extension, output_path_2)
         
-        upscaleImg(output_path, target_extension, output_path_2)
-        
-        print(output_path_2)
+        print(output_path)
 
-        output_upscale_base64 = to_base64_str(output_path_2) 
+        output_upscale_base64 = to_base64_str(output_path) 
 
         seconds = '{:.2f}'.format((time() - start_time) % 60)
         print(f'Total Process in: [{seconds}] seconds.')
