@@ -392,6 +392,7 @@ def process_image(start_time : float) -> None:
 		logger.info(wording.get('processing_image_succeed').format(seconds = seconds), __name__.upper())
 		conditional_log_statistics()
 	else:
+		print(normed_output_path)
 		logger.error(wording.get('processing_image_failed'), __name__.upper())
 	process_manager.end()
 
