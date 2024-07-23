@@ -63,6 +63,20 @@ if not os.path.isfile(model_path):
     # download pre-trained models from url
     model_path = url
 
+restorerU1 = GFPGANer(
+    model_path=model_path,
+    upscale=1,
+    arch=arch,
+    channel_multiplier=channel_multiplier,
+    bg_upsampler=bg_upsampler)
+
+restorerU2 = GFPGANer(
+    model_path=model_path,
+    upscale=2,
+    arch=arch,
+    channel_multiplier=channel_multiplier,
+    bg_upsampler=bg_upsampler)
+
 
 def isFile(path):
     return os.path.splitext(path)[1] != ""
@@ -130,21 +144,22 @@ def upscaleImg(img_path:str, ext:str, output_path:str, upscale=1 ):
         basename, ext = os.path.splitext(img_name)
         input_img = cv2.imread(img_path, cv2.IMREAD_COLOR)
             
-        restorer = GFPGANer(
-            model_path=model_path,
-            upscale=upscale,
-            arch=arch,
-            channel_multiplier=channel_multiplier,
-            bg_upsampler=bg_upsampler)
-
-        # restore faces and background if necessary
-        cropped_faces, restored_faces, restored_img = restorer.enhance(
-            input_img,
-            has_aligned=False,
-            only_center_face=False,
-            paste_back=True,
-            weight=None)
-
+        if upscale == 1:
+            # restore faces and background if necessary
+            cropped_faces, restored_faces, restored_img = restorerU1.enhance(
+                input_img,
+                has_aligned=False,
+                only_center_face=False,
+                paste_back=True,
+                weight=None)
+        else:
+            cropped_faces, restored_faces, restored_img = restorerU2.enhance(
+                input_img,
+                has_aligned=False,
+                only_center_face=False,
+                paste_back=True,
+                weight=None)
+            
         extension = ext
 
         # save restored img
