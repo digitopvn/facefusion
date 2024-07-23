@@ -249,9 +249,10 @@ async def process_frames(params = Body(...)) -> dict:
 
         firstFace = get_face_process(source_path)
 
-        cropFaceSourcePath = os.path.join(tempDir, os.path.basename(f'source-face-upscale.png'))
-        crop_image_by_location(source_path, firstFace, tempDir, cropFaceSourcePath)
-        source_paths.append(cropFaceSourcePath)
+        # cropFaceSourcePath = os.path.join(tempDir, os.path.basename(f'source-face-upscale.png'))
+        crop_image_by_location(source_path, firstFace, tempDir, "cropFaceSourcePath")
+        # source_paths.append(cropFaceSourcePath)
+        source_paths.append(source_path)
 
         target = params['target']
         target_extension = params['target_extension']
@@ -271,6 +272,7 @@ async def process_frames(params = Body(...)) -> dict:
         seconds = '{:.2f}'.format((time() - start_time) % 60)
         print(f'Prepair in: [{seconds}] seconds.')
 
+        sleep(0.3)
         conditional_process()
         # output = to_base64_str(globals.output_path)
         output_path = os.path.join(tempDir, os.path.basename(f'output-upscale-1.{target_extension}'))
