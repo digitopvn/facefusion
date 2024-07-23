@@ -1,26 +1,21 @@
-FaceFusion
-==========
+python run.py --face-mask-blur 0.1 --face-enhancer-model gfpgan_1.4 --output-image-quality 100 --face-analyser-order left-right --face-selector-mode reference --headless --temp-frame-format png -s "./init-image/source.jpg" -t "./init-image/target.png" -o "./init-image/output.png" --headless & python inference_gfpgan.py -v 1.4 -s 1 --ext jpg -i "./init-image/source.jpg" -o "./init-image/upscale.jpg"
+
+# FaceFusion
 
 > Next generation face swapper and enhancer.
 
 [![Build Status](https://img.shields.io/github/actions/workflow/status/facefusion/facefusion/ci.yml.svg?branch=master)](https://github.com/facefusion/facefusion/actions?query=workflow:ci)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-
-Preview
--------
+## Preview
 
 ![Preview](https://raw.githubusercontent.com/facefusion/facefusion/master/.github/preview.png?sanitize=true)
 
-
-Installation
-------------
+## Installation
 
 Be aware, the [installation](https://docs.facefusion.io/installation) needs technical skills and is not recommended for beginners. In case you are not comfortable using a terminal, our [Windows Installer](https://buymeacoffee.com/henryruhs/e/251939) can have you up and running in minutes.
 
-
-Usage
------
+## Usage
 
 Run the command:
 
@@ -106,8 +101,6 @@ uis:
   --ui-layouts UI_LAYOUTS [UI_LAYOUTS ...]                                                                                                                                              launch a single or multiple UI layouts (choices: benchmark, default, webcam, ...)
 ```
 
-
-Documentation
--------------
+## Documentation
 
 Read the [documentation](https://docs.facefusion.io) for a deep dive.
