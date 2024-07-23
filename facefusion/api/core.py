@@ -44,7 +44,7 @@ load_env_file('.env')
 
 port = int(os.getenv('PORT', 3000))
 debug = bool(os.getenv('DEBUG', True))
-ouputFolderDir = str(os.getenv('OUPUT_FOLDER_DIR', os.path.join(os.getcwd(), "output")))
+ouputFolderDir = str(os.getenv('OUTPUT_FOLDER_DIR', os.path.join(os.getcwd(), "output")))
 
 
 app = FastAPI()
