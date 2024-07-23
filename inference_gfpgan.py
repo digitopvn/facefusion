@@ -4,8 +4,8 @@ import glob
 import numpy as np
 import os
 import torch
-# from basicsr.utils import imwrite
-from cv2 import imwrite  # Assuming you're using OpenCV
+from basicsr.utils import imwrite
+# from cv2 import imwrite  # Assuming you're using OpenCV
 
 from gfpgan import GFPGANer
 

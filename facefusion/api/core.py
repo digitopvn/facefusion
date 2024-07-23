@@ -9,8 +9,8 @@ import base64
 import tempfile
 import base64
 import cv2
-# from basicsr.utils import imwrite
-from cv2 import imwrite  # Assuming you're using OpenCV
+from basicsr.utils import imwrite
+# from cv2 import imwrite  # Assuming you're using OpenCV
 from facefusion.vision import read_static_image
 from facefusion.face_analyser import get_many_faces
 from PIL import Image
