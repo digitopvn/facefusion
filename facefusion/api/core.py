@@ -167,7 +167,8 @@ def upscaleImg(img_path:str, ext:str, output_path:str, upscale=1 ):
         print(f'Upscale in: [{seconds}] seconds.')
 
     except (OSError, ValueError):
-        sleep(0.3)
+        print("ERROR @@")
+        sleep(2)
         return upscaleImg(img_path, ext, output_path, upscale )
    
 
