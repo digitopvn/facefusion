@@ -1,4 +1,4 @@
-from gfpgan import GFPGANer
+# from gfpgan import GFPGANer
 from time import sleep, time
 from facefusion.core import conditional_process
 import facefusion.globals as globals
@@ -14,6 +14,10 @@ from facefusion.vision import read_static_image
 from facefusion.face_analyser import get_many_faces
 from PIL import Image
 from facefusion.processors.frame import globals as frame_processors_globals
+from facefusion.ffmpeg import copy_image
+import shutil
+import subprocess
+
 import datetime
 
 globals.face_analyser_order="best-worst"
@@ -111,54 +115,61 @@ def apply_args():
 
 
 def upscaleImg(img_path:str, ext:str, output_path:str, upscale=1 ):
-    start_time_upscale = time()
+    # copy_image(facefusion.globals.target_path, temp_image_resolution):
+    # copy_image(img_path, output_path)
+    # start_time_upscale = time()
 
-    img_name = os.path.basename(img_path)
-    print(f'Processing {img_name} ...')
-    basename, ext = os.path.splitext(img_name)
-    input_img = cv2.imread(img_path, cv2.IMREAD_COLOR)
+    # img_name = os.path.basename(img_path)
+    # print(f'Processing {img_name} ...')
+    # basename, ext = os.path.splitext(img_name)
+    # input_img = cv2.imread(img_path, cv2.IMREAD_COLOR)
         
-    restorer = GFPGANer(
-        model_path=model_path,
-        upscale=upscale,
-        arch=arch,
-        channel_multiplier=channel_multiplier,
-        bg_upsampler=bg_upsampler)
+    # restorer = GFPGANer(
+    #     model_path=model_path,
+    #     upscale=upscale,
+    #     arch=arch,
+    #     channel_multiplier=channel_multiplier,
+    #     bg_upsampler=bg_upsampler)
 
-    # restore faces and background if necessary
-    cropped_faces, restored_faces, restored_img = restorer.enhance(
-        input_img,
-        has_aligned=False,
-        only_center_face=False,
-        paste_back=True,
-        weight=None)
+    # # restore faces and background if necessary
+    # cropped_faces, restored_faces, restored_img = restorer.enhance(
+    #     input_img,
+    #     has_aligned=False,
+    #     only_center_face=False,
+    #     paste_back=True,
+    #     weight=None)
 
-    extension = ext
+    # extension = ext
 
-    # save restored img
-    if restored_img is not None:
+    # # save restored img
+    # if restored_img is not None:
 
-        # save_restore_path = os.path.join(args.output, f'{basename}.{extension}')
-        # Check if args.output is a directory
-        if os.path.isdir(output_path):
-            save_restore_path = os.path.join(output_path, f'{basename}.{extension}')
-        # Check if args.output is a file
-        elif isFile(output_path):
-            save_restore_path = output_path
-        # If args.output is neither a file nor a directory, handle the error or create a new directory/file
-        else:
-            # Handle this situation as you see fit (e.g., raise an error, create a directory, etc.)
-            raise ValueError("args.output is neither a valid file nor a directory path")
+    #     # save_restore_path = os.path.join(args.output, f'{basename}.{extension}')
+    #     # Check if args.output is a directory
+    #     if os.path.isdir(output_path):
+    #         save_restore_path = os.path.join(output_path, f'{basename}.{extension}')
+    #     # Check if args.output is a file
+    #     elif isFile(output_path):
+    #         save_restore_path = output_path
+    #     # If args.output is neither a file nor a directory, handle the error or create a new directory/file
+    #     else:
+    #         # Handle this situation as you see fit (e.g., raise an error, create a directory, etc.)
+    #         raise ValueError("args.output is neither a valid file nor a directory path")
 
-        imwrite(restored_img, save_restore_path)
+        # imwrite(restored_img, save_restore_path)
+    shutil.copy(img_path, output_path)
 
-    if(isFile(output_path)):
-        print(f'Results: {output_path}')
-    else:
-        print(f'Results are in the [{output_path}] folder.')
+    # print (img_path)
+    # print (output_path)
+    # imwrite(img_path, output_path)
 
-    seconds = '{:.2f}'.format((time() - start_time_upscale) % 60)
-    print(f'Upscale in: [{seconds}] seconds.')
+    # if(isFile(output_path)):
+    #     print(f'Results: {output_path}')
+    # else:
+    #     print(f'Results are in the [{output_path}] folder.')
+
+    # seconds = '{:.2f}'.format((time() - start_time_upscale) % 60)
+    # print(f'Upscale in: [{seconds}] seconds.')
 
     return
 
@@ -225,9 +236,11 @@ def make_tmp_dir():
 @router.post("/")
 async def process_frames(params = Body(...)) -> dict:
     try:
+
         update_global_variables(params)
         sources = params['sources']
         source_extension = params['source_extension']
+        target_extension = params['target_extension']
         source_paths = []
 
         tempDir = make_tmp_dir()
@@ -245,12 +258,28 @@ async def process_frames(params = Body(...)) -> dict:
         crop_image_by_location(source_path, firstFace, tempDir, cropFaceSourcePath)
         source_paths.append(cropFaceSourcePath)
 
-        print(f'cropFaceSourcePath :>> {cropFaceSourcePath}')
-
         target = params['target']
         target_extension = params['target_extension']
         target_path = os.path.join(tempDir, os.path.basename(f'target.{target_extension}'))
         save_file(target_path, target)
+
+        # output_path_2 = os.path.join(tempDir, os.path.basename(f'output-3.{target_extension}'))
+        # # Construct the command
+        # command = f"python run.py --face-enhancer-blend 35 --headless -s {cropFaceSourcePath} -t {target_path} -o {output_path_2}"
+        # print(command)
+        # # Run the command in the current directory
+        # process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=os.getcwd())
+        # # Capture the output and errors
+        # stdout, stderr = process.communicate()
+        # # # Print the output and errors
+        # # print("Output:")
+        # # print(stdout.decode())
+        # # print("Errors:")
+        # # print(stderr.decode())
+        # print(f'cropFaceSourcePath :>> {cropFaceSourcePath}')
+        # output_upscale_base64 = to_base64_str(output_path_2) 
+        # return {"output": output_upscale_base64}
+        
         globals.source_paths = source_paths
         globals.target_path = target_path
         globals.output_path = os.path.join(tempDir, os.path.basename(f'output.{target_extension}'))
