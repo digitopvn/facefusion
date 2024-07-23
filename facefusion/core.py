@@ -294,6 +294,7 @@ def pre_check() -> bool:
 
 
 def conditional_process() -> None:
+	clear_reference_faces()
 	start_time = time()
 	for frame_processor_module in get_frame_processors_modules(facefusion.globals.frame_processors):
 		while not frame_processor_module.post_check():
@@ -303,7 +304,6 @@ def conditional_process() -> None:
 		if not frame_processor_module.pre_process('output'):
 			return
 
-	clear_reference_faces()
 	conditional_append_reference_faces()
 	if is_image(facefusion.globals.target_path):
 		process_image(start_time)
@@ -375,6 +375,8 @@ def process_image(start_time : float) -> None:
 		frame_processor_module.post_process()
 	if is_process_stopping():
 		return
+	
+	sleep(0.5)
 	# finalize image
 	logger.info(wording.get('finalizing_image').format(resolution = facefusion.globals.output_image_resolution), __name__.upper())
 	if finalize_image(facefusion.globals.target_path, normed_output_path, facefusion.globals.output_image_resolution):
