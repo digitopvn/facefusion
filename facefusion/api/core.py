@@ -116,57 +116,60 @@ def apply_args():
 
 
 def upscaleImg(img_path:str, ext:str, output_path:str, upscale=1 ):
-    start_time_upscale = time()
+    try:
+        start_time_upscale = time()
 
-    img_name = os.path.basename(img_path)
-    print(f'Processing {img_name} ...')
-    basename, ext = os.path.splitext(img_name)
-    input_img = cv2.imread(img_path, cv2.IMREAD_COLOR)
-        
-    restorer = GFPGANer(
-        model_path=model_path,
-        upscale=upscale,
-        arch=arch,
-        channel_multiplier=channel_multiplier,
-        bg_upsampler=bg_upsampler)
+        img_name = os.path.basename(img_path)
+        print(f'Processing {img_name} ...')
+        basename, ext = os.path.splitext(img_name)
+        input_img = cv2.imread(img_path, cv2.IMREAD_COLOR)
+            
+        restorer = GFPGANer(
+            model_path=model_path,
+            upscale=upscale,
+            arch=arch,
+            channel_multiplier=channel_multiplier,
+            bg_upsampler=bg_upsampler)
 
-    # restore faces and background if necessary
-    cropped_faces, restored_faces, restored_img = restorer.enhance(
-        input_img,
-        has_aligned=False,
-        only_center_face=False,
-        paste_back=True,
-        weight=None)
+        # restore faces and background if necessary
+        cropped_faces, restored_faces, restored_img = restorer.enhance(
+            input_img,
+            has_aligned=False,
+            only_center_face=False,
+            paste_back=True,
+            weight=None)
 
-    extension = ext
+        extension = ext
 
-    # save restored img
-    if restored_img is not None:
+        # save restored img
+        if restored_img is not None:
 
-        # save_restore_path = os.path.join(args.output, f'{basename}.{extension}')
-        # Check if args.output is a directory
-        if os.path.isdir(output_path):
-            save_restore_path = os.path.join(output_path, f'{basename}.{extension}')
-        # Check if args.output is a file
-        elif isFile(output_path):
-            save_restore_path = output_path
-        # If args.output is neither a file nor a directory, handle the error or create a new directory/file
+            # save_restore_path = os.path.join(args.output, f'{basename}.{extension}')
+            # Check if args.output is a directory
+            if os.path.isdir(output_path):
+                save_restore_path = os.path.join(output_path, f'{basename}.{extension}')
+            # Check if args.output is a file
+            elif isFile(output_path):
+                save_restore_path = output_path
+            # If args.output is neither a file nor a directory, handle the error or create a new directory/file
+            else:
+                # Handle this situation as you see fit (e.g., raise an error, create a directory, etc.)
+                raise ValueError("args.output is neither a valid file nor a directory path")
+
+            imwrite(restored_img, save_restore_path)
+
+        if(isFile(output_path)):
+            print(f'Results: {output_path}')
         else:
-            # Handle this situation as you see fit (e.g., raise an error, create a directory, etc.)
-            raise ValueError("args.output is neither a valid file nor a directory path")
+            print(f'Results are in the [{output_path}] folder.')
 
-        imwrite(restored_img, save_restore_path)
+        seconds = '{:.2f}'.format((time() - start_time_upscale) % 60)
+        print(f'Upscale in: [{seconds}] seconds.')
 
-    if(isFile(output_path)):
-        print(f'Results: {output_path}')
-    else:
-        print(f'Results are in the [{output_path}] folder.')
-
-    seconds = '{:.2f}'.format((time() - start_time_upscale) % 60)
-    print(f'Upscale in: [{seconds}] seconds.')
-
-    return
-
+    except (OSError, ValueError):
+        sleep(0.3)
+        return upscaleImg(img_path, ext, output_path, upscale )
+   
 
 def get_location_frames(reference_frame):
     try:
