@@ -1,5 +1,9 @@
 python run.py --face-mask-blur 0.1 --face-enhancer-model gfpgan_1.4 --output-image-quality 100 --face-analyser-order left-right --face-selector-mode reference --headless --temp-frame-format png -s "./init-image/source.jpg" -t "./init-image/target.png" -o "./init-image/output.png" --headless & python inference_gfpgan.py -v 1.4 -s 1 --ext jpg -i "./init-image/source.jpg" -o "./init-image/upscale.jpg"
 
+
+python run.py --face-mask-blur 0.1 --face-enhancer-model gfpgan_1.4 --output-image-quality 100 --face-analyser-order left-right --face-selector-mode reference --headless --temp-frame-format png -s "../init-image/source.jpg" -t "../init-image/target.png" -o "../init-image/output.png" --headless --execution-providers cuda & python inference_gfpgan.py -v 1.4 -s 1 --ext jpg -i "../init-image/source.jpg" -o "../init-image/upscale.jpg" --bg_upsampler none
+
+
 # FaceFusion
 
 > Next generation face swapper and enhancer.
