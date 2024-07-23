@@ -206,7 +206,7 @@ def crop_image_by_location(image_path: str, crop_frame, tempfilePath, cropFaceSo
     # cropped_image.save(cropFaceSourcePath)
     cropped_image_path = os.path.join(tempfilePath, os.path.basename(f'source-face.png'))
     cropped_image.save(cropped_image_path)
-    # upscaleImg(cropped_image_path, "png", cropFaceSourcePath, 2)
+    upscaleImg(cropped_image_path, "png", cropFaceSourcePath, 2)
 
 
 def get_face_process(source_path) -> None:
@@ -253,10 +253,10 @@ async def process_frames(params = Body(...)) -> dict:
 
         firstFace = get_face_process(source_path)
 
-        # cropFaceSourcePath = os.path.join(tempDir, os.path.basename(f'source-face-upscale.png'))
-        crop_image_by_location(source_path, firstFace, tempDir, "cropFaceSourcePath")
-        # source_paths.append(cropFaceSourcePath)
-        source_paths.append(source_path)
+        cropFaceSourcePath = os.path.join(tempDir, os.path.basename(f'source-face-upscale.png'))
+        crop_image_by_location(source_path, firstFace, tempDir, cropFaceSourcePath)
+        source_paths.append(cropFaceSourcePath)
+        # source_paths.append(source_path)
 
         target = params['target']
         target_extension = params['target_extension']
@@ -276,8 +276,25 @@ async def process_frames(params = Body(...)) -> dict:
         seconds = '{:.2f}'.format((time() - start_time) % 60)
         print(f'Prepair in: [{seconds}] seconds.')
 
-        sleep(0.3)
-        conditional_process()
+        # sleep(0.3)
+        # conditional_process()
+        # output_path_2 = os.path.join(tempDir, os.path.basename(f'output-3.{target_extension}'))
+        # Construct the command
+        command = f"python run.py --face-enhancer-blend 35 --headless -s {cropFaceSourcePath} -t {target_path} -o {globals.output_path} --execution-thread-count 1 --execution-providers cuda --face-mask-blur 0.15"
+        print(command)
+        # Run the command in the current directory
+        process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=os.getcwd())
+        # Capture the output and errors
+        stdout, stderr = process.communicate()
+        # # Print the output and errors
+        # print("Output:")
+        # print(stdout.decode())
+        # print("Errors:")
+        # print(stderr.decode())
+        # print(f'cropFaceSourcePath :>> {cropFaceSourcePath}')
+        # output_upscale_base64 = to_base64_str(output_path_2) 
+        # return {"output": output_upscale_base64}
+
         # output = to_base64_str(globals.output_path)
         output_path = os.path.join(tempDir, os.path.basename(f'output-upscale-1.{target_extension}'))
 
