@@ -11,7 +11,11 @@ module.exports = {
 			args: [
 				"--api",
 				"--face-enhancer-blend",
-				35,
+				60,
+				"--face-analyser-order",
+				"best-worst",
+				"--face-mask-blur",
+				0.15,
 				"--execution-thread-count",
 				1,
 				"--execution-providers",

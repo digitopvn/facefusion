@@ -18,12 +18,8 @@ from facefusion.processors.frame import globals as frame_processors_globals
 from facefusion.ffmpeg import copy_image
 import shutil
 import subprocess
-
 import datetime
-
-globals.face_analyser_order="best-worst"
-frame_processors_globals.face_enhancer_blend = 35
-globals.face_mask_blur = .15
+from termcolor import colored
 
 # Define a function to load .env file
 
@@ -46,6 +42,8 @@ port = int(os.getenv('PORT', 3000))
 debug = bool(os.getenv('DEBUG', True))
 ouputFolderDir = str(os.getenv('OUTPUT_FOLDER_DIR', os.path.join(os.getcwd(), "output")))
 
+globals.face_analyser_order="best-worst"
+globals.face_mask_blur = .15
 
 app = FastAPI()
 router = APIRouter()
@@ -108,10 +106,6 @@ def apply_args():
     from facefusion.vision import is_image, is_video, detect_image_resolution, detect_video_resolution, detect_video_fps, create_image_resolutions, create_video_resolutions, pack_resolution
     from facefusion.normalizer import normalize_fps
     if is_image(globals.target_path):
-        globals.face_analyser_order="best-worst"
-        frame_processors_globals.face_enhancer_blend = 35
-        globals.face_mask_blur = .15
-
         output_image_resolution = detect_image_resolution(globals.target_path)
         output_image_resolutions = create_image_resolutions(output_image_resolution)
         if globals.output_image_resolution in output_image_resolutions:
@@ -130,17 +124,10 @@ def apply_args():
 
 
 def upscaleImg(img_path:str, ext:str, output_path:str, upscale=1 ):
-    # command = f"python inference_gfpgan.py -v 1.4 -s {upscale} --ext {ext} -i {img_path} -o {output_path} --bg_upsampler none"
-    # print(command)
-    # # Run the command in the current directory
-    # process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=os.getcwd())
-    # # Capture the output and errors
-    # stdout, stderr = process.communicate()
     try:
         start_time_upscale = time()
 
         img_name = os.path.basename(img_path)
-        print(f'Processing {img_name} ...')
         basename, ext = os.path.splitext(img_name)
         input_img = cv2.imread(img_path, cv2.IMREAD_COLOR)
             
@@ -164,7 +151,6 @@ def upscaleImg(img_path:str, ext:str, output_path:str, upscale=1 ):
 
         # save restored img
         if restored_img is not None:
-
             # save_restore_path = os.path.join(args.output, f'{basename}.{extension}')
             # Check if args.output is a directory
             if os.path.isdir(output_path):
@@ -176,21 +162,13 @@ def upscaleImg(img_path:str, ext:str, output_path:str, upscale=1 ):
             else:
                 # Handle this situation as you see fit (e.g., raise an error, create a directory, etc.)
                 raise ValueError("args.output is neither a valid file nor a directory path")
-
             imwrite(restored_img, save_restore_path)
-
-        if(isFile(output_path)):
-            print(f'Results: {output_path}')
-        else:
-            print(f'Results are in the [{output_path}] folder.')
 
         seconds = '{:.2f}'.format((time() - start_time_upscale) % 60)
         print(f'Upscale in: [{seconds}] seconds.')
 
     except (OSError, ValueError):
-        print("ERROR @@")
-        sleep(2)
-        return upscaleImg(img_path, ext, output_path, upscale )
+        return 
    
 
 def get_location_frames(reference_frame):
@@ -266,22 +244,22 @@ async def process_frames(params = Body(...)) -> dict:
         tempDir = make_tmp_dir()
 
         print(f'Temp Dir: {tempDir}')
+            
+        current_time = datetime.datetime.now()
+        formatted_time = current_time.strftime("%Y%m%d%H%M%S%f")[:-2]  # Remove the last two digits of microseconds
 
         for i, source in enumerate(sources):
-            source_path = os.path.join(tempDir, os.path.basename(f'source{i}.{source_extension}'))
+            source_path = os.path.join(tempDir, os.path.basename(f'source{i}-{formatted_time}.{source_extension}'))
             save_file(source_path, source)
-            # source_paths.append(source_path)
 
         firstFace = get_face_process(source_path)
-
         cropFaceSourcePath = os.path.join(tempDir, os.path.basename(f'source-face-upscale.png'))
         crop_image_by_location(source_path, firstFace, tempDir, cropFaceSourcePath)
         source_paths.append(cropFaceSourcePath)
-        # source_paths.append(source_path)
 
         target = params['target']
         target_extension = params['target_extension']
-        target_path = os.path.join(tempDir, os.path.basename(f'target.{target_extension}'))
+        target_path = os.path.join(tempDir, os.path.basename(f'target-{formatted_time}.{target_extension}'))
         save_file(target_path, target)
 
         globals.source_paths = source_paths
@@ -290,30 +268,10 @@ async def process_frames(params = Body(...)) -> dict:
 
         apply_args()
 
-        # print(globals.source_paths)
-        # print(globals.target_path)
-        # print(globals.output_path)
-
         seconds = '{:.2f}'.format((time() - start_time) % 60)
-        print(f'Prepair in: [{seconds}] seconds.')
+        print(colored(f'Prepair in: [{seconds}] seconds.', 'yellow'))
 
         conditional_process()
-        # output_path_2 = os.path.join(tempDir, os.path.basename(f'output-3.{target_extension}'))
-        # Construct the command
-        # command = f"python run.py --face-enhancer-blend 35 --headless -s {cropFaceSourcePath} -t {target_path} -o {globals.output_path} --execution-thread-count 1 --execution-providers cuda --face-mask-blur 0.15"
-        # print(command)
-        # # Run the command in the current directory
-        # process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=os.getcwd())
-        # # Capture the output and errors
-        # stdout, stderr = process.communicate()
-        # # # Print the output and errors
-        # # print("Output:")
-        # # print(stdout.decode())
-        # # print("Errors:")
-        # # print(stderr.decode())
-        # # print(f'cropFaceSourcePath :>> {cropFaceSourcePath}')
-        # # output_upscale_base64 = to_base64_str(output_path_2) 
-        # # return {"output": output_upscale_base64}
 
         # output = to_base64_str(globals.output_path)
         output_path = os.path.join(tempDir, os.path.basename(f'output-upscale-1.{target_extension}'))
@@ -326,7 +284,7 @@ async def process_frames(params = Body(...)) -> dict:
         output_upscale_base64 = to_base64_str(output_path) 
 
         seconds = '{:.2f}'.format((time() - start_time) % 60)
-        print(f'Total Process in: [{seconds}] seconds.')
+        print(colored(f'Total Process in: [{seconds}] seconds.', 'green'))
 
         return {"output": output_upscale_base64}
     except (OSError, ValueError):
