@@ -24,6 +24,25 @@ from termcolor import colored
 # Define a function to load .env file
 
 
+# Define the UTC+7 timezone
+class UTCOffset(datetime.tzinfo):
+    def __init__(self, offset_hours):
+        self.offset = datetime.timedelta(hours=offset_hours)
+
+    def utcoffset(self, dt):
+        return self.offset
+
+    def dst(self, dt):
+        return datetime.timedelta(0)
+
+    def tzname(self, dt):
+        return f"UTC+{self.offset.hours}"
+
+
+# Create a timezone object for UTC+7
+tz_plus_7 = UTCOffset(7)
+
+
 def load_env_file(filepath):
     with open(filepath) as f:
         for line in f:
@@ -213,12 +232,15 @@ def get_face_process(source_path) -> None:
 
 
 def make_tmp_dir(): 
-    # Get the current time
-    current_time = datetime.datetime.now()
-    # Get the current date
-    current_date = current_time.strftime("%Y-%m-%d")
-    # Format the time as requested (hour 0-24)
-    formatted_time = current_time.strftime("%H-%M-%S-%f")[:-2]  # Remove the last two digits of microseconds
+    
+    # Get the current time in UTC
+    current_time_utc = datetime.datetime.now(datetime.timezone.utc)
+    # Convert the current time to the desired timezone
+    current_time_plus_7 = current_time_utc.astimezone(tz_plus_7)
+    # Get the current date in the desired timezone
+    current_date = current_time_plus_7.strftime("%Y-%m-%d")
+    # Format the time as requested (hour 0-24) in the desired timezone
+    formatted_time = current_time_plus_7.strftime("%H-%M-%S-%f")[:-2]  # Remove the last two digits of microseconds
 
     # Create the base directory path
     base_dir = os.path.join(ouputFolderDir, current_date)
@@ -245,8 +267,17 @@ async def process_frames(params = Body(...)) -> dict:
 
         print(f'Temp Dir: {tempDir}')
             
-        current_time = datetime.datetime.now()
-        formatted_time = current_time.strftime("%Y%m%d%H%M%S%f")[:-2]  # Remove the last two digits of microseconds
+        # current_time = datetime.datetime.now()
+        # formatted_time = current_time.strftime("%Y%m%d%H%M%S%f")[:-2]  # Remove the last two digits of microseconds
+
+        # Get the current time in UTC
+        current_time_utc = datetime.datetime.now(datetime.timezone.utc)
+        # Convert the current time to the desired timezone
+        current_time_plus_7 = current_time_utc.astimezone(tz_plus_7)
+        # Get the current date in the desired timezone
+        current_date = current_time_plus_7.strftime("%Y-%m-%d")
+        # Format the time as requested (hour 0-24) in the desired timezone
+        formatted_time = current_time_plus_7.strftime("%H-%M-%S-%f")[:-2]  # Remove the last two digits of microseconds
 
         for i, source in enumerate(sources):
             source_path = os.path.join(tempDir, os.path.basename(f'source{i}-{formatted_time}.{source_extension}'))
