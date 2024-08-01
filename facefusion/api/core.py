@@ -304,12 +304,19 @@ async def process_frames(params = Body(...)) -> dict:
 
         conditional_process()
 
-        # output = to_base64_str(globals.output_path)
-        output_path = os.path.join(tempDir, os.path.basename(f'output-upscale-1.{target_extension}'))
+        # Number of upscaling iterations
+        num_iterations = 2
+
+        # Initial output path
+        output_path = os.path.join(tempDir, os.path.basename(f'output-1.{target_extension}'))
         upscaleImg(globals.output_path, target_extension, output_path)
-        output_path_2 = os.path.join(tempDir, os.path.basename(f'output-upscale-2.{target_extension}'))
-        upscaleImg(output_path, target_extension, output_path_2)
-        
+
+        # Loop through the number of iterations for further upscaling
+        for i in range(1, num_iterations):
+            input_path = output_path
+            output_path = os.path.join(tempDir, os.path.basename(f'output-{i+1}.{target_extension}'))
+            upscaleImg(input_path, target_extension, output_path)
+
         print(output_path)
 
         output_upscale_base64 = to_base64_str(output_path) 
