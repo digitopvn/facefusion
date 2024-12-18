@@ -65,8 +65,8 @@ ouputFolderDir = str(
     os.getenv("OUTPUT_FOLDER_DIR", os.path.join(os.getcwd(), "output"))
 )
 
-globals.face_analyser_order = "best-worst"
-globals.face_mask_blur = 0.15
+globals.face_analyser_order = "left-right"
+globals.face_mask_blur = 1.0
 
 app = FastAPI()
 router = APIRouter()
