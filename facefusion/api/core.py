@@ -2,7 +2,6 @@ from fastapi.middleware.cors import CORSMiddleware  # type: ignore
 from gfpgan import GFPGANer
 from time import sleep, time
 from facefusion.core import conditional_process
-import facefusion.globals as globals
 import uvicorn  # type: ignore
 from fastapi import FastAPI, APIRouter, Body  # type: ignore
 import os
@@ -11,6 +10,7 @@ import tempfile
 import base64
 import cv2
 from basicsr.utils import imwrite
+from facefusion import state_manager
 
 # from cv2 import imwrite  # Assuming you're using OpenCV
 from facefusion.vision import read_static_image
@@ -65,8 +65,9 @@ ouputFolderDir = str(
     os.getenv("OUTPUT_FOLDER_DIR", os.path.join(os.getcwd(), "output"))
 )
 
-globals.face_analyser_order = "left-right"
-globals.face_mask_blur = 1.0
+state_manager.set_item("face_analyser_order", "left-right")
+state_manager.set_item("face_mask_blur", 1.0)
+
 
 app = FastAPI()
 router = APIRouter()
@@ -149,24 +150,48 @@ def apply_args():
     )
     from facefusion.normalizer import normalize_fps
 
-    if is_image(globals.target_path):
-        output_image_resolution = detect_image_resolution(globals.target_path)
+    if is_image(state_manager.get_item("target_path")):
+        output_image_resolution = detect_image_resolution(
+            state_manager.get_item("target_path")
+        )
         output_image_resolutions = create_image_resolutions(output_image_resolution)
-        if globals.output_image_resolution in output_image_resolutions:
-            globals.output_image_resolution = globals.output_image_resolution
+        if (
+            state_manager.get_item("output_image_resolution")
+            in output_image_resolutions
+        ):
+            state_manager.set_item(
+                "output_image_resolution",
+                state_manager.get_item("output_image_resolution"),
+            )
         else:
-            globals.output_image_resolution = pack_resolution(output_image_resolution)
-    if is_video(globals.target_path):
-        output_video_resolution = detect_video_resolution(globals.target_path)
+            state_manager.set_item(
+                "output_image_resolution", pack_resolution(output_image_resolution)
+            )
+    if is_video(state_manager.get_item("target_path")):
+        output_video_resolution = detect_video_resolution(
+            state_manager.get_item("target_path")
+        )
         output_video_resolutions = create_video_resolutions(output_video_resolution)
-        if globals.output_video_resolution in output_video_resolutions:
-            globals.output_video_resolution = globals.output_video_resolution
+        if (
+            state_manager.get_item("output_video_resolution")
+            in output_video_resolutions
+        ):
+            state_manager.set_item(
+                "output_video_resolution",
+                state_manager.get_item("output_video_resolution"),
+            )
         else:
-            globals.output_video_resolution = pack_resolution(output_video_resolution)
-    if globals.output_video_fps or is_video(globals.target_path):
-        globals.output_video_fps = normalize_fps(
-            globals.output_video_fps
-        ) or detect_video_fps(globals.target_path)
+            state_manager.set_item(
+                "output_video_resolution", pack_resolution(output_video_resolution)
+            )
+    if state_manager.get_item("output_video_fps") or is_video(
+        state_manager.get_item("target_path")
+    ):
+        state_manager.set_item(
+            "output_video_fps",
+            normalize_fps(state_manager.get_item("output_video_fps"))
+            or detect_video_fps(state_manager.get_item("target_path")),
+        )
 
 
 def upscaleImg(img_path: str, ext: str, output_path: str, upscale=1):
@@ -223,7 +248,9 @@ def upscaleImg(img_path: str, ext: str, output_path: str, upscale=1):
 
 def get_location_frames(reference_frame):
     try:
+        print(reference_frame)
         faces = get_many_faces(reference_frame)
+        print(26)
 
         face = faces[0]
 
@@ -312,6 +339,8 @@ async def process_frames(params=Body(...)) -> dict:
     try:
         start_time = time()
 
+        print("f{}", start_time)
+
         update_global_variables(params)
         sources = params["sources"]
         source_extension = params["source_extension"]
@@ -336,19 +365,25 @@ async def process_frames(params=Body(...)) -> dict:
             :-2
         ]  # Remove the last two digits of microseconds
 
+        print(1)
         for i, source in enumerate(sources):
             source_path = os.path.join(
                 tempDir,
                 os.path.basename(f"source{i}-{formatted_time}.{source_extension}"),
             )
             save_file(source_path, source)
-
+        print(2)
+        print(source_path)
         firstFace = get_face_process(source_path)
+        print(22)
         cropFaceSourcePath = os.path.join(
             tempDir, os.path.basename(f"source-face-upscale.png")
         )
+        print(23)
         crop_image_by_location(source_path, firstFace, tempDir, cropFaceSourcePath)
+        print(24)
         source_paths.append(cropFaceSourcePath)
+        print(3)
 
         target = params["target"]
         target_extension = params["target_extension"]
@@ -356,19 +391,23 @@ async def process_frames(params=Body(...)) -> dict:
             tempDir, os.path.basename(f"target-{formatted_time}.{target_extension}")
         )
         save_file(target_path, target)
+        print(4)
 
-        globals.source_paths = source_paths
-        globals.target_path = target_path
-        globals.output_path = os.path.join(
-            tempDir, os.path.basename(f"output.{target_extension}")
+        state_manager.set_item("source_paths", source_paths)
+        state_manager.set_item("target_path", target_path)
+        state_manager.set_item(
+            "output_path",
+            os.path.join(tempDir, os.path.basename(f"output.{target_extension}")),
         )
 
         apply_args()
+        print(5)
 
         seconds = "{:.2f}".format((time() - start_time) % 60)
         print(colored(f"Prepair in: [{seconds}] seconds.", "yellow"))
 
         conditional_process()
+        print(6)
 
         # Number of upscaling iterations
         num_iterations = 2
@@ -377,7 +416,8 @@ async def process_frames(params=Body(...)) -> dict:
         output_path = os.path.join(
             tempDir, os.path.basename(f"output-1.{target_extension}")
         )
-        upscaleImg(globals.output_path, target_extension, output_path)
+
+        upscaleImg(state_manager.get_item("output_path"), target_extension, output_path)
 
         # Loop through the number of iterations for further upscaling
         for i in range(1, num_iterations):
