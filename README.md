@@ -1,3 +1,9 @@
+<!-- pip install torch==2.5.1+cu121 torchvision==0.20.1+cu121 --index-url https://download.pytorch.org/whl/cu121 -->
+pip install torch==2.5.1+cu118 torchvision==0.20.1+cu118 --index-url https://download.pytorch.org/whl/cu118
+pip install --force-reinstall --no-cache-dir opencv-python==4.8.0.74
+
+pip install torch==2.1.0+cu123 torchvision==0.16.0+cu123 --index-url https://download.pytorch.org/whl/cu123
+
 FaceFusion
 ==========
 
