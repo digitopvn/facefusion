@@ -1,5 +1,4 @@
 import subprocess
-
 import pytest
 
 from facefusion.audio import get_audio_frame, read_static_audio
