@@ -31,6 +31,8 @@ HOST = os.getenv("API_HOST", "0.0.0.0")
 PORT = int(os.getenv("API_PORT", "8000"))
 DEBUG = os.getenv("DEBUG_MODE", "False").lower() == "true"
 CORS_ORIGINS = json.loads(os.getenv("CORS_ORIGINS", '["*"]'))
+API_UPSCALE_URL = os.getenv("API_UPSCALE_URL", "http://localhost:3033")
+
 ouputFolderDir = str(
     os.getenv("OUTPUT_FOLDER_DIR", os.path.join(os.getcwd(), "output"))
 )
@@ -190,7 +192,7 @@ async def process_frames(params=Body(...)) -> dict:
 
     try:
         response = requests.post(
-            "http://localhost:3033/scale",
+            f"{API_UPSCALE_URL}/scale",
             json={
                 #
                 "local_path": output_path,

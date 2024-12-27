@@ -10,7 +10,7 @@ module.exports = {
 			script: "facefusion.py",
 			args: ["api"],
 			autorestart: true,
-			interpreter: "python", // Path to your Python interpreter
+			interpreter: process.env.INTERPRETER, // Path to your Python interpreter
 			// interpreter:
 			// 	"/mnt/digitop_18TB/please-no-not-delete/miniconda3/envs/py310/bin/python",
 		},

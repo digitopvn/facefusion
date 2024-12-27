@@ -4,7 +4,7 @@ max=1  # Correct max value here
 newTextNginx() {
   local newServer=$1
   local keepalive_value=$(((max+1) * 2))
-  echo "upstream ff148_ult_vn {
+  echo "upstream faceswap_zii_vn {
   zone upstreams;
 
 $newServer
@@ -19,7 +19,7 @@ runCmd() {
   local user=$2
 
   if [ -n "$user" ]; then
-    su -c "export PATH=\$PATH:/root/.nvm/versions/node/v20.15.1/bin:/root/miniconda3/condabin && $command" - "$user"
+    su -c "export PATH=\$PATH:/home/ubuntu/.nvm/versions/node/v20.15.1/bin:/home/ubuntu/miniconda3/condabin && $command" - "$user"
   else
     eval "$command"
   fi
@@ -39,8 +39,8 @@ wait_for() {
 # Step 1: Copy folder facefusion-0 to facefusion-1 ... facefusion-10
 for i in $(seq 0 $max); do
   rm -rf "facefusion-$i"
-  cp -r facefusion "facefusion-$i"
-  # chown ubuntu:ubuntu -R "facefusion-$i"
+  cp -r facefusion-0 "facefusion-$i"
+  chown ubuntu:ubuntu -R "facefusion-$i"
 done
 
 # Step 2: Modify .env files in each folder
@@ -54,11 +54,11 @@ for i in $(seq 0 $max); do
 
   # Modify the .env file
   {
-    echo "PORT=$((3200 + i))"
+    echo "PORT=$((3050 + i))"
     echo "DEBUG=True"
     echo "APP_NAME=facefusion-pod-$i"
-    echo "OUTPUT_FOLDER_DIR=/root/dynamic-files/swap-face"
-    echo "INTERPRETER=/root/miniconda3/envs/facefusion-$i/bin/python"
+    echo "OUTPUT_FOLDER_DIR=/home/ubuntu/dynamic_files/swap-face"
+    echo "INTERPRETER=/home/ubuntu/miniconda3/envs/facefusion-$i/bin/python"
   } > "$env_file"
 
 
@@ -106,17 +106,17 @@ done
 
 # Step 3: Run pm2 start for each folder
 for i in $(seq 0 $max); do
-  # echo "pm2 start /root/projects/facefusion-$i/ecosystem.config.js" "ubuntu"
-  # runCmd "cd /root/projects/facefusion-$i && conda init && conda activate facefusion-$i && pm2 start" "ubuntu"
-  runCmd "cd /root/projects/facefusion-$i && bun i && source /root/miniconda3/etc/profile.d/conda.sh && conda activate facefusion-$i && pm2 start /root/projects/facefusion-$i/ecosystem.config.js" "root"
-  # runCmd "cd /root/projects/facefusion-$i && conda init && conda activate facefusion-$i && pm2 start" "ubuntu"
+  # echo "pm2 start /home/ubuntu/projects/facefusion-$i/ecosystem.config.js" "ubuntu"
+  # runCmd "cd /home/ubuntu/projects/facefusion-$i && conda init && conda activate facefusion-$i && pm2 start" "ubuntu"
+  runCmd "cd /home/ubuntu/projects/facefusion-$i && bun i && source /home/ubuntu/miniconda3/etc/profile.d/conda.sh && conda activate facefusion-$i && pm2 start /home/ubuntu/projects/facefusion-$i/ecosystem.config.js" "ubuntu"
+  # runCmd "cd /home/ubuntu/projects/facefusion-$i && conda init && conda activate facefusion-$i && pm2 start" "ubuntu"
 done
 
 
 # Step 4: Reset all servers to active
 newText=""
 for i in $(seq 0 $max); do
-  newText+="\tserver localhost:$((3200 + i)) weight=1 max_fails=1 fail_timeout=10s;\n"
+  newText+="\tserver localhost:$((3050 + i)) weight=1 max_fails=1 fail_timeout=10s;\n"
 done
 
 content=$(newTextNginx "$newText")
