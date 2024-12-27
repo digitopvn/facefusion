@@ -7,12 +7,12 @@ module.exports = {
 	apps: [
 		{
 			name: process.env.APP_NAME || "facefusion",
-			script: "run.py",
-			args: ["--api", "--face-enhancer-blend", 35],
+			script: "facefusion.py",
+			args: ["api"],
 			autorestart: true,
-			// interpreter: "/usr/bin/python3", // Path to your Python interpreter
-			interpreter:
-				"/mnt/digitop_18TB/please-no-not-delete/miniconda3/envs/py310/bin/python",
+			interpreter: "python", // Path to your Python interpreter
+			// interpreter:
+			// 	"/mnt/digitop_18TB/please-no-not-delete/miniconda3/envs/py310/bin/python",
 		},
 	],
 };

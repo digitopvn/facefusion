@@ -16,6 +16,10 @@ __pycache__/
 
 # C extensions
 *.so
+bun.lockb
+node_modules
+dist
+out
 
 # Distribution / packaging
 .Python
