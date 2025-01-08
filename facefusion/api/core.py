@@ -22,6 +22,10 @@ from facefusion.vision import (
 from facefusion.face_analyser import get_many_faces
 from facefusion.vision import read_static_images
 import requests
+from facefusion.face_store import (
+    clear_reference_faces,
+    clear_static_faces,
+)
 
 # Load environment variables
 load_dotenv()
@@ -137,83 +141,94 @@ async def check_face(params=Body(...)) -> dict:
 
 @app.post("/")
 async def process_frames(params=Body(...)) -> dict:
-    sources = params["sources"]
-    source_extension = params["source_extension"]
-    target_extension = params["target_extension"]
-    source_paths = []
-
-    temp_dir = make_tmp_dir()
-
-    print(f"Temp Dir: {temp_dir}")
-
-    # current_time = datetime.datetime.now()
-    # formatted_time = current_time.strftime("%Y%m%d%H%M%S%f")[:-2]  # Remove the last two digits of microseconds
-
-    # Get the current time in UTC
-    current_time_utc = datetime.datetime.now(datetime.timezone.utc)
-    # Convert the current time to the desired timezone
-    current_time_plus_7 = current_time_utc.astimezone(tz_plus_7)
-    # Get the current date in the desired timezone
-    current_date = current_time_plus_7.strftime("%Y-%m-%d")
-    # Format the time as requested (hour 0-24) in the desired timezone
-    formatted_time = current_time_plus_7.strftime("%H-%M-%S-%f")[
-        :-2
-    ]  # Remove the last two digits of microseconds
-
-    for i, source in enumerate(sources):
-        source_path = os.path.join(
-            temp_dir,
-            os.path.basename(f"source{i}-{formatted_time}.{source_extension}"),
-        )
-        source_paths.append(source_path)
-        save_file(source_path, source)
-
-    target = params["target"]
-    target_extension = params["target_extension"]
-    target_path = os.path.join(
-        temp_dir, os.path.basename(f"target-{formatted_time}.{target_extension}")
-    )
-
-    save_file(target_path, target)
-
-    output_path = os.path.join(temp_dir, os.path.basename(f"output.{target_extension}"))
-
-    state_manager.set_item("source_paths", source_paths)
-    state_manager.set_item("target_path", target_path)
-    state_manager.set_item("output_path", output_path)
-
-    output_image_resolution = detect_image_resolution(target_path)
-    output_image_resolutions = create_image_resolutions(output_image_resolution)
-    state_manager.set_item(
-        "output_image_resolution", pack_resolution(output_image_resolution)
-    )
-
-    conditional_process()
 
     try:
-        response = requests.post(
-            f"{API_UPSCALE_URL}/scale",
-            json={
-                #
-                "local_path": output_path,
-                "output_dir": temp_dir,
-            },
+        sources = params["sources"]
+        source_extension = params["source_extension"]
+        target_extension = params["target_extension"]
+        source_paths = []
+
+        temp_dir = make_tmp_dir()
+
+        print(f"Temp Dir: {temp_dir}")
+
+        # current_time = datetime.datetime.now()
+        # formatted_time = current_time.strftime("%Y%m%d%H%M%S%f")[:-2]  # Remove the last two digits of microseconds
+
+        # Get the current time in UTC
+        current_time_utc = datetime.datetime.now(datetime.timezone.utc)
+        # Convert the current time to the desired timezone
+        current_time_plus_7 = current_time_utc.astimezone(tz_plus_7)
+        # Get the current date in the desired timezone
+        current_date = current_time_plus_7.strftime("%Y-%m-%d")
+        # Format the time as requested (hour 0-24) in the desired timezone
+        formatted_time = current_time_plus_7.strftime("%H-%M-%S-%f")[
+            :-2
+        ]  # Remove the last two digits of microseconds
+
+        for i, source in enumerate(sources):
+            source_path = os.path.join(
+                temp_dir,
+                os.path.basename(f"source{i}-{formatted_time}.{source_extension}"),
+            )
+            source_paths.append(source_path)
+            save_file(source_path, source)
+
+        target = params["target"]
+        target_extension = params["target_extension"]
+        target_path = os.path.join(
+            temp_dir, os.path.basename(f"target-{formatted_time}.{target_extension}")
         )
-        response.raise_for_status()
-        res = response.json()["data"]
-        local_path = res["local_path"]
 
-        # output_upscale_base64 = to_base64_str(local_path)
-        print(local_path)
+        save_file(target_path, target)
 
-        return {
-            "status": 1,
-            "data": {
-                # "output": output_upscale_base64,
-                "local_path": local_path
-            },
-        }
+        output_path = os.path.join(
+            temp_dir, os.path.basename(f"output.{target_extension}")
+        )
+
+        state_manager.set_item("source_paths", source_paths)
+        state_manager.set_item("target_path", target_path)
+        state_manager.set_item("output_path", output_path)
+
+        output_image_resolution = detect_image_resolution(target_path)
+        output_image_resolutions = create_image_resolutions(output_image_resolution)
+        state_manager.set_item(
+            "output_image_resolution", pack_resolution(output_image_resolution)
+        )
+
+        conditional_process()
+        clear_static_faces()
+        clear_reference_faces()
+
+        try:
+            response = requests.post(
+                f"{API_UPSCALE_URL}/scale",
+                json={
+                    #
+                    "local_path": output_path,
+                    "output_dir": temp_dir,
+                },
+            )
+            response.raise_for_status()
+            res = response.json()["data"]
+            local_path = res["local_path"]
+
+            # output_upscale_base64 = to_base64_str(local_path)
+            print(local_path)
+
+            return {
+                "status": 1,
+                "data": {
+                    # "output": output_upscale_base64,
+                    "local_path": local_path
+                },
+            }
+
+        except Exception as e:
+            return {"status": 1, "data": {"output": to_base64_str(output_path)}}
     except Exception as e:
+        clear_static_faces()
+        clear_reference_faces()
         return {"status": 1, "data": {"output": to_base64_str(output_path)}}
 
 
