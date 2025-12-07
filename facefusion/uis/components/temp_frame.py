@@ -3,9 +3,9 @@ from typing import Optional
 import gradio
 
 import facefusion.choices
-from facefusion import state_manager, wording
+from facefusion import state_manager, translator
 from facefusion.filesystem import is_video
-from facefusion.typing import TempFrameFormat
+from facefusion.types import TempFrameFormat
 from facefusion.uis.core import get_ui_component
 
 TEMP_FRAME_FORMAT_DROPDOWN : Optional[gradio.Dropdown] = None
@@ -15,7 +15,7 @@ def render() -> None:
 	global TEMP_FRAME_FORMAT_DROPDOWN
 
 	TEMP_FRAME_FORMAT_DROPDOWN = gradio.Dropdown(
-		label = wording.get('uis.temp_frame_format_dropdown'),
+		label = translator.get('uis.temp_frame_format_dropdown'),
 		choices = facefusion.choices.temp_frame_formats,
 		value = state_manager.get_item('temp_frame_format'),
 		visible = is_video(state_manager.get_item('target_path'))
@@ -27,7 +27,7 @@ def listen() -> None:
 
 	target_video = get_ui_component('target_video')
 	if target_video:
-		for method in [ 'upload', 'change', 'clear' ]:
+		for method in [ 'change', 'clear' ]:
 			getattr(target_video, method)(remote_update, outputs = TEMP_FRAME_FORMAT_DROPDOWN)
 
 

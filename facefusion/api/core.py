@@ -13,19 +13,30 @@ from dotenv import load_dotenv
 import os
 import json
 import datetime
-from facefusion import state_manager
+from facefusion import (
+    state_manager,
+    content_analyser,
+    logger,
+    face_classifier,
+    face_detector,
+    face_landmarker,
+    face_masker,
+    face_recognizer,
+    voice_extractor
+)
 from facefusion.vision import (
-    create_image_resolutions,
     detect_image_resolution,
     pack_resolution,
+    read_static_image,
+    write_image,
 )
 from facefusion.face_analyser import get_many_faces
 from facefusion.vision import read_static_images
-import requests
 from facefusion.face_store import (
-    clear_reference_faces,
     clear_static_faces,
 )
+from facefusion.execution import get_available_execution_providers
+from facefusion.processors.core import get_processors_modules
 
 # Load environment variables
 load_dotenv()
@@ -41,10 +52,94 @@ ouputFolderDir = str(
     os.getenv("OUTPUT_FOLDER_DIR", os.path.join(os.getcwd(), "output"))
 )
 
-# state_manager.set_item("processors", ["face_swapper", "face_enhancer"])
-# state_manager.set_item("face_enhancer_model", "gfpgan_1.4")
-# state_manager.set_item("face_swapper_model", "simswap_256")
-# state_manager.set_item("face_enhancer_blend", 100)
+
+def initialize_facefusion():
+    """Initialize facefusion with default state manager settings"""
+    # Initialize execution providers
+    available_execution_providers = get_available_execution_providers()
+    default_execution_provider = available_execution_providers[0] if available_execution_providers else 'cpu'
+
+    # Set required state manager items with defaults
+    state_manager.init_item('download_scope', 'full')  # Use 'full' to ensure all models are downloaded
+    state_manager.init_item('execution_providers', [default_execution_provider])
+    state_manager.init_item('execution_device_ids', [0])
+    state_manager.init_item('execution_thread_count', 8)
+    state_manager.init_item('video_memory_strategy', 'strict')
+    state_manager.init_item('system_memory_limit', 0)
+    state_manager.init_item('log_level', 'info')
+
+    # Initialize processors - default to face_swapper
+    state_manager.init_item('processors', ['face_swapper'])
+
+    # Face swapper specific settings
+    state_manager.init_item('face_swapper_model', 'hyperswap_1a_256')
+    state_manager.init_item('face_swapper_pixel_boost', '256x256')
+    state_manager.init_item('face_swapper_weight', 0.5)
+
+    # Output settings
+    state_manager.init_item('output_image_quality', 100)
+    state_manager.init_item('output_image_scale', 1.0)
+    state_manager.init_item('keep_temp', True)
+    state_manager.init_item('temp_frame_format', 'png')
+
+    # Face detector settings
+    state_manager.init_item('face_detector_model', 'yolo_face')
+    state_manager.init_item('face_detector_score', 0.5)
+
+    # Face landmarker settings
+    state_manager.init_item('face_landmarker_model', '2dfan4')
+
+    # Face masker settings
+    state_manager.init_item('face_occluder_model', 'xseg_1')
+    state_manager.init_item('face_parser_model', 'bisenet_resnet_34')
+
+    # Face selector settings
+    state_manager.init_item('face_selector_mode', 'reference')
+    state_manager.init_item('face_selector_order', 'best-worst')
+
+    # Initialize logger
+    logger.init(state_manager.get_item('log_level'))
+
+    # Pre-check and download common modules
+    common_modules = [
+        ('content_analyser', content_analyser),
+        ('face_classifier', face_classifier),
+        ('face_detector', face_detector),
+        ('face_landmarker', face_landmarker),
+        ('face_masker', face_masker),
+        ('face_recognizer', face_recognizer),
+        ('voice_extractor', voice_extractor)
+    ]
+
+    logger.info('Initializing common modules...', __name__)
+    for module_name, module in common_modules:
+        logger.info(f'Initializing {module_name}...', __name__)
+        if not module.pre_check():
+            logger.error(f'{module_name} initialization failed', __name__)
+            return False
+
+    # Pre-check and download processor models
+    logger.info('Initializing processors...', __name__)
+    for processor_module in get_processors_modules(state_manager.get_item('processors')):
+        logger.info(f'Initializing {processor_module.__name__}...', __name__)
+        if not processor_module.pre_check():
+            logger.error(f'{processor_module.__name__} initialization failed', __name__)
+            return False
+
+    logger.info('FaceFusion API initialized successfully', __name__)
+
+    for processor_module in get_processors_modules(state_manager.get_item('processors')):
+        if not processor_module.pre_process('output'):
+            return 2
+    return True
+
+
+# Initialize on module load
+_initialized = False
+if not _initialized:
+    _initialized = initialize_facefusion()
+    if not _initialized:
+        raise RuntimeError("Failed to initialize FaceFusion")
 
 
 # Define the UTC+7 timezone
@@ -105,9 +200,9 @@ def make_tmp_dir():
     # Convert the current time to the desired timezone
     current_time_plus_7 = current_time_utc.astimezone(tz_plus_7)
     # Get the current date in the desired timezone
-    current_date = current_time_plus_7.strftime("%Y-%m-%d")
+    current_date = current_time_plus_7.strftime("%Y/%m/%d/%H")
     # Format the time as requested (hour 0-24) in the desired timezone
-    formatted_time = current_time_plus_7.strftime("%H-%M-%S-%f")[
+    formatted_time = current_time_plus_7.strftime("%M-%S-%f")[
         :-2
     ]  # Remove the last two digits of microseconds
 
@@ -123,29 +218,128 @@ def make_tmp_dir():
 
 @router.post("/check-face")
 async def check_face(params=Body(...)) -> dict:
-    try:
-        face_location = get_many_faces(read_static_images([params["source_path"]]))
-        if len(face_location) == 1:
-            return {"status": 1, "data": True}
-        if len(face_location) > 1:
-            return {"status": 0, "message": "MULTI_FACE"}
+    """
+    Check and extract faces from a base64-encoded image.
 
-        return {"status": 0, "message": "FACE_NO_FOUND"}
+    Parameters:
+    - source: Base64-encoded image string
+    - source_extension: (optional) Image extension (jpg, png, etc.), default 'jpg'
+    - return_faces: (optional) If True, returns base64-encoded face images, default True
+    - save_faces: (optional) If True, saves faces to temp directory and returns paths, default True
+    - padding: (optional) Padding in pixels around face bounding box, default 30
+
+    Returns:
+    - status: 1 for success, 0 for error
+    - data: Object containing:
+      - count: Number of faces detected
+      - faces: Array of face data with images/paths (original ratio maintained)
+    """
+    temp_dir = None
+    try:
+        # Get parameters
+        source = params["source"]
+        source_extension = params.get("source_extension", "jpg").lstrip('.')
+        return_faces = params.get("return_faces", True)
+        save_faces = params.get("save_faces", True)
+        padding = params.get("padding", 30)
+
+        # Create temp directory
+        temp_dir = make_tmp_dir()
+
+        # Get the current time for filename
+        current_time_utc = datetime.datetime.now(datetime.timezone.utc)
+        current_time_plus_7 = current_time_utc.astimezone(tz_plus_7)
+        formatted_time = current_time_plus_7.strftime("%H-%M-%S-%f")[:-2]
+
+        # Save base64 image to temp file
+        source_path = os.path.join(
+            temp_dir,
+            f"source-{formatted_time}.{source_extension}"
+        )
+        save_file(source_path, source)
+
+        # Read the image
+        vision_frame = read_static_image(source_path)
+
+        # Detect faces
+        faces = get_many_faces([vision_frame])
+        face_count = len(faces)
+
+        logger.info(f"Detected {face_count} faces", __name__)
+
+        if face_count == 0:
+            return {"status": 0, "message": "FACE_NO_FOUND"}
+
+        # Basic response
+        response_data = {
+            "count": face_count,
+            "has_single_face": face_count == 1,
+            "has_multiple_faces": face_count > 1
+        }
+
+        # Extract and return faces if requested
+        if return_faces or save_faces:
+            face_data = []
+            img_height, img_width = vision_frame.shape[:2]
+
+            for idx, face in enumerate(faces):
+                # Get bounding box coordinates
+                x1, y1, x2, y2 = face.bounding_box
+
+                # Add padding and ensure within image boundaries
+                x1_padded = max(0, int(x1 - padding))
+                y1_padded = max(0, int(y1 - padding))
+                x2_padded = min(img_width, int(x2 + padding))
+                y2_padded = min(img_height, int(y2 + padding))
+
+                # Extract face region with padding (maintains original ratio)
+                crop_vision_frame = vision_frame[y1_padded:y2_padded, x1_padded:x2_padded].copy()
+
+                face_info = {
+                    # "index": idx,
+                    # "bounding_box": face.bounding_box.tolist(),
+                    # "bounding_box_with_padding": [x1_padded, y1_padded, x2_padded, y2_padded],
+                    "width": x2_padded - x1_padded,
+                    "height": y2_padded - y1_padded,
+                    "gender": face.gender if hasattr(face, 'gender') else None,
+                    "age": list(face.age) if hasattr(face, 'age') and face.age else None
+                }
+
+                # Return as base64
+                # if return_faces:
+                    # _, buffer = cv2.imencode('.jpg', crop_vision_frame)
+                    # face_base64 = base64.b64encode(buffer).decode('utf-8')
+                    # face_info["image"] = face_base64
+
+                # Save to file
+                if save_faces:
+                    face_filename = f"face_{idx}.jpg"
+                    face_path = os.path.join(temp_dir, face_filename)
+                    write_image(face_path, crop_vision_frame)
+                    face_info["path"] = face_path
+
+                face_data.append(face_info)
+
+            response_data["faces"] = face_data
+        print(response_data)
+        return {"status": 1, "data": response_data}
+
     except ValueError as e:
-        print(e)
-        return {"status": 0, "message": "FACE_NO_FOUND"}
+        logger.error(f"ValueError in check_face: {str(e)}", __name__)
+        return {"status": 0, "message": "FACE_NO_FOUND", "error": str(e)}
     except Exception as e:
-        print(e)
-        return {"status": 0, "message": "FACE_NO_FOUND"}
+        logger.error(f"Exception in check_face: {str(e)}", __name__)
+        return {"status": 0, "message": "FACE_NO_FOUND", "error": str(e)}
 
 
 @app.post("/")
 async def process_frames(params=Body(...)) -> dict:
+    output_path = None  # Initialize to None to handle exceptions properly
 
     try:
         sources = params["sources"]
-        source_extension = params["source_extension"]
-        target_extension = params["target_extension"]
+        source_extension = params.get("source_extension", "jpg").lstrip('.')  # Remove leading dot if present
+        target_extension = params.get("target_extension", "jpg").lstrip('.')  # Remove leading dot if present
         source_paths = []
 
         temp_dir = make_tmp_dir()
@@ -160,7 +354,7 @@ async def process_frames(params=Body(...)) -> dict:
         # Convert the current time to the desired timezone
         current_time_plus_7 = current_time_utc.astimezone(tz_plus_7)
         # Get the current date in the desired timezone
-        current_date = current_time_plus_7.strftime("%Y-%m-%d")
+        # current_date = current_time_plus_7.strftime("%Y-%m-%d")
         # Format the time as requested (hour 0-24) in the desired timezone
         formatted_time = current_time_plus_7.strftime("%H-%M-%S-%f")[
             :-2
@@ -169,21 +363,20 @@ async def process_frames(params=Body(...)) -> dict:
         for i, source in enumerate(sources):
             source_path = os.path.join(
                 temp_dir,
-                os.path.basename(f"source{i}-{formatted_time}.{source_extension}"),
+                f"source{i}-{formatted_time}.{source_extension}",
             )
             source_paths.append(source_path)
             save_file(source_path, source)
 
         target = params["target"]
-        target_extension = params["target_extension"]
         target_path = os.path.join(
-            temp_dir, os.path.basename(f"target-{formatted_time}.{target_extension}")
+            temp_dir, f"target-{formatted_time}.{target_extension}"
         )
 
         save_file(target_path, target)
 
         output_path = os.path.join(
-            temp_dir, os.path.basename(f"output.{target_extension}")
+            temp_dir, f"output.{target_extension}"
         )
 
         state_manager.set_item("source_paths", source_paths)
@@ -191,45 +384,58 @@ async def process_frames(params=Body(...)) -> dict:
         state_manager.set_item("output_path", output_path)
 
         output_image_resolution = detect_image_resolution(target_path)
-        output_image_resolutions = create_image_resolutions(output_image_resolution)
+        # output_image_resolutions = create_image_resolutions(output_image_resolution)
         state_manager.set_item(
             "output_image_resolution", pack_resolution(output_image_resolution)
         )
 
         conditional_process()
         clear_static_faces()
-        clear_reference_faces()
+        # clear_reference_faces()
 
-        try:
-            response = requests.post(
-                f"{API_UPSCALE_URL}/scale",
-                json={
-                    #
-                    "local_path": output_path,
-                    "output_dir": temp_dir,
-                },
-            )
-            response.raise_for_status()
-            res = response.json()["data"]
-            local_path = res["local_path"]
+        return {
+            "status": 1,
+            "data": {
+                # "output": output_upscale_base64,
+                "local_path": output_path
+            },
+        }
 
-            # output_upscale_base64 = to_base64_str(local_path)
-            print(local_path)
+        # try:
+        #     response = requests.post(
+        #         f"{API_UPSCALE_URL}/scale",
+        #         json={
+        #             #
+        #             "local_path": output_path,
+        #             "output_dir": temp_dir,
+        #         },
+        #     )
+        #     response.raise_for_status()
+        #     res = response.json()["data"]
+        #     local_path = res["local_path"]
 
-            return {
-                "status": 1,
-                "data": {
-                    # "output": output_upscale_base64,
-                    "local_path": local_path
-                },
-            }
+        #     # output_upscale_base64 = to_base64_str(local_path)
+        #     print(local_path)
 
-        except Exception as e:
-            return {"status": 1, "data": {"output": to_base64_str(output_path)}}
+        #     return {
+        #         "status": 1,
+        #         "data": {
+        #             # "output": output_upscale_base64,
+        #             "local_path": local_path
+        #         },
+        #     }
+
+        # except Exception as e:
+        #     return {"status": 1, "data": {"output": to_base64_str(output_path)}}
     except Exception as e:
+        logger.error(f'Processing error: {str(e)}', __name__)
         clear_static_faces()
-        clear_reference_faces()
-        return {"status": 1, "data": {"output": to_base64_str(output_path)}}
+        # clear_reference_faces()
+        # Return error response if output_path is not set or file doesn't exist
+        if output_path and os.path.exists(output_path):
+            return {"status": 1, "data": {"output": to_base64_str(output_path)}}
+        else:
+            return {"status": 0, "message": f"Processing failed: {str(e)}"}
 
 
 def launch():

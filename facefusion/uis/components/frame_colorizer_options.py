@@ -2,11 +2,11 @@ from typing import List, Optional, Tuple
 
 import gradio
 
-from facefusion import state_manager, wording
-from facefusion.common_helper import calc_int_step
-from facefusion.processors import choices as processors_choices
+from facefusion import state_manager, translator
+from facefusion.common_helper import calculate_int_step
 from facefusion.processors.core import load_processor_module
-from facefusion.processors.typing import FrameColorizerModel
+from facefusion.processors.modules.frame_colorizer import choices as frame_colorizer_choices
+from facefusion.processors.modules.frame_colorizer.types import FrameColorizerModel
 from facefusion.uis.core import get_ui_component, register_ui_component
 
 FRAME_COLORIZER_MODEL_DROPDOWN : Optional[gradio.Dropdown] = None
@@ -19,25 +19,26 @@ def render() -> None:
 	global FRAME_COLORIZER_SIZE_DROPDOWN
 	global FRAME_COLORIZER_BLEND_SLIDER
 
+	has_frame_colorizer = 'frame_colorizer' in state_manager.get_item('processors')
 	FRAME_COLORIZER_MODEL_DROPDOWN = gradio.Dropdown(
-		label = wording.get('uis.frame_colorizer_model_dropdown'),
-		choices = processors_choices.frame_colorizer_models,
+		label = translator.get('uis.model_dropdown', 'facefusion.processors.modules.frame_colorizer'),
+		choices = frame_colorizer_choices.frame_colorizer_models,
 		value = state_manager.get_item('frame_colorizer_model'),
-		visible = 'frame_colorizer' in state_manager.get_item('processors')
+		visible = has_frame_colorizer
 	)
 	FRAME_COLORIZER_SIZE_DROPDOWN = gradio.Dropdown(
-		label = wording.get('uis.frame_colorizer_size_dropdown'),
-		choices = processors_choices.frame_colorizer_sizes,
+		label = translator.get('uis.size_dropdown', 'facefusion.processors.modules.frame_colorizer'),
+		choices = frame_colorizer_choices.frame_colorizer_sizes,
 		value = state_manager.get_item('frame_colorizer_size'),
-		visible = 'frame_colorizer' in state_manager.get_item('processors')
+		visible = has_frame_colorizer
 	)
 	FRAME_COLORIZER_BLEND_SLIDER = gradio.Slider(
-		label = wording.get('uis.frame_colorizer_blend_slider'),
+		label = translator.get('uis.blend_slider', 'facefusion.processors.modules.frame_colorizer'),
 		value = state_manager.get_item('frame_colorizer_blend'),
-		step = calc_int_step(processors_choices.frame_colorizer_blend_range),
-		minimum = processors_choices.frame_colorizer_blend_range[0],
-		maximum = processors_choices.frame_colorizer_blend_range[-1],
-		visible = 'frame_colorizer' in state_manager.get_item('processors')
+		step = calculate_int_step(frame_colorizer_choices.frame_colorizer_blend_range),
+		minimum = frame_colorizer_choices.frame_colorizer_blend_range[0],
+		maximum = frame_colorizer_choices.frame_colorizer_blend_range[-1],
+		visible = has_frame_colorizer
 	)
 	register_ui_component('frame_colorizer_model_dropdown', FRAME_COLORIZER_MODEL_DROPDOWN)
 	register_ui_component('frame_colorizer_size_dropdown', FRAME_COLORIZER_SIZE_DROPDOWN)
