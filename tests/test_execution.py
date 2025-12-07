@@ -1,21 +1,24 @@
-from facefusion.execution import encode_execution_providers, decode_execution_providers, apply_execution_provider_options
+from facefusion.execution import create_inference_session_providers, get_available_execution_providers, has_execution_provider
 
 
-def test_encode_execution_providers() -> None:
-	assert encode_execution_providers([ 'CPUExecutionProvider' ]) == [ 'cpu' ]
+def test_has_execution_provider() -> None:
+	assert has_execution_provider('cpu') is True
+	assert has_execution_provider('openvino') is False
 
 
-def test_decode_execution_providers() -> None:
-	assert decode_execution_providers([ 'cpu' ]) == [ 'CPUExecutionProvider' ]
+def test_get_available_execution_providers() -> None:
+	assert 'cpu' in get_available_execution_providers()
 
 
-def test_multiple_execution_providers() -> None:
-	execution_provider_with_options =\
+def test_create_inference_session_providers() -> None:
+	inference_session_providers =\
 	[
-		'CPUExecutionProvider',
 		('CUDAExecutionProvider',
 		{
-			'cudnn_conv_algo_search': 'DEFAULT'
-		})
+			'device_id': 1,
+			'cudnn_conv_algo_search': 'EXHAUSTIVE'
+		}),
+		'CPUExecutionProvider'
 	]
-	assert apply_execution_provider_options([ 'CPUExecutionProvider', 'CUDAExecutionProvider' ]) == execution_provider_with_options
+
+	assert create_inference_session_providers(1, [ 'cpu', 'cuda' ]) == inference_session_providers

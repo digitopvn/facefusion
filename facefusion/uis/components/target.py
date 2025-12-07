@@ -1,12 +1,12 @@
-from typing import Tuple, Optional
+from typing import Optional, Tuple
+
 import gradio
 
-import facefusion.globals
-from facefusion import wording
-from facefusion.face_store import clear_static_faces, clear_reference_faces
-from facefusion.uis.typing import File
+from facefusion import state_manager, translator
+from facefusion.face_store import clear_static_faces
 from facefusion.filesystem import is_image, is_video
 from facefusion.uis.core import register_ui_component
+from facefusion.uis.types import ComponentOptions, File
 
 TARGET_FILE : Optional[gradio.File] = None
 TARGET_IMAGE : Optional[gradio.Image] = None
@@ -18,30 +18,30 @@ def render() -> None:
 	global TARGET_IMAGE
 	global TARGET_VIDEO
 
-	is_target_image = is_image(facefusion.globals.target_path)
-	is_target_video = is_video(facefusion.globals.target_path)
+	is_target_image = is_image(state_manager.get_item('target_path'))
+	is_target_video = is_video(state_manager.get_item('target_path'))
 	TARGET_FILE = gradio.File(
-		label = wording.get('uis.target_file'),
-		file_count = 'single',
-		file_types =
-		[
-			'.png',
-			'.jpg',
-			'.webp',
-			'.mp4'
-		],
-		value = facefusion.globals.target_path if is_target_image or is_target_video else None
+		label = translator.get('uis.target_file'),
+		value = state_manager.get_item('target_path') if is_target_image or is_target_video else None
 	)
-	TARGET_IMAGE = gradio.Image(
-		value = TARGET_FILE.value['name'] if is_target_image else None,
-		visible = is_target_image,
-		show_label = False
-	)
-	TARGET_VIDEO = gradio.Video(
-		value = TARGET_FILE.value['name'] if is_target_video else None,
-		visible = is_target_video,
-		show_label = False
-	)
+	target_image_options : ComponentOptions =\
+	{
+		'show_label': False,
+		'visible': False
+	}
+	target_video_options : ComponentOptions =\
+	{
+		'show_label': False,
+		'visible': False
+	}
+	if is_target_image:
+		target_image_options['value'] = TARGET_FILE.value.get('path')
+		target_image_options['visible'] = True
+	if is_target_video:
+		target_video_options['value'] = TARGET_FILE.value.get('path')
+		target_video_options['visible'] = True
+	TARGET_IMAGE = gradio.Image(**target_image_options)
+	TARGET_VIDEO = gradio.Video(**target_video_options)
 	register_ui_component('target_image', TARGET_IMAGE)
 	register_ui_component('target_video', TARGET_VIDEO)
 
@@ -51,13 +51,15 @@ def listen() -> None:
 
 
 def update(file : File) -> Tuple[gradio.Image, gradio.Video]:
-	clear_reference_faces()
 	clear_static_faces()
+
 	if file and is_image(file.name):
-		facefusion.globals.target_path = file.name
+		state_manager.set_item('target_path', file.name)
 		return gradio.Image(value = file.name, visible = True), gradio.Video(value = None, visible = False)
+
 	if file and is_video(file.name):
-		facefusion.globals.target_path = file.name
+		state_manager.set_item('target_path', file.name)
 		return gradio.Image(value = None, visible = False), gradio.Video(value = file.name, visible = True)
-	facefusion.globals.target_path = None
+
+	state_manager.clear_item('target_path')
 	return gradio.Image(value = None, visible = False), gradio.Video(value = None, visible = False)

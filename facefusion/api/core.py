@@ -1,79 +1,187 @@
-from gfpgan import GFPGANer
-from time import sleep, time
-from facefusion.core import conditional_process
-import facefusion.globals as globals
-import uvicorn
-from fastapi import FastAPI, APIRouter, Body
+# main.py
+from fastapi import FastAPI, APIRouter, Body, File, UploadFile, Body
 import os
-import base64
 import tempfile
 import base64
+from fastapi.middleware.cors import CORSMiddleware
+from facefusion.core import conditional_process
+import uvicorn
+from typing import Optional
+import numpy as np
 import cv2
-from basicsr.utils import imwrite
-from facefusion.vision import read_static_image
-from facefusion.face_analyser import get_many_faces
-from PIL import Image
-from facefusion.processors.frame import globals as frame_processors_globals
+from dotenv import load_dotenv
+import os
+import json
 import datetime
+from facefusion import (
+    state_manager,
+    content_analyser,
+    logger,
+    face_classifier,
+    face_detector,
+    face_landmarker,
+    face_masker,
+    face_recognizer,
+    voice_extractor
+)
+from facefusion.vision import (
+    detect_image_resolution,
+    pack_resolution,
+    read_static_image,
+    write_image,
+)
+from facefusion.face_analyser import get_many_faces
+from facefusion.vision import read_static_images
+from facefusion.face_store import (
+    clear_static_faces,
+)
+from facefusion.execution import get_available_execution_providers
+from facefusion.processors.core import get_processors_modules
 
-globals.face_analyser_order="best-worst"
-frame_processors_globals.face_enhancer_blend = 35
-globals.face_mask_blur = .15
+# Load environment variables
+load_dotenv()
 
-# Define a function to load .env file
+# Get environment variables with defaults
+HOST = os.getenv("API_HOST", "0.0.0.0")
+PORT = int(os.getenv("API_PORT", "8000"))
+DEBUG = os.getenv("DEBUG_MODE", "False").lower() == "true"
+CORS_ORIGINS = json.loads(os.getenv("CORS_ORIGINS", '["*"]'))
+API_UPSCALE_URL = os.getenv("API_UPSCALE_URL", "http://localhost:3033")
 
-
-def load_env_file(filepath):
-    with open(filepath) as f:
-        for line in f:
-            # Ignore comments and empty lines
-            if line.startswith('#') or not line.strip():
-                continue
-            # Split key and value
-            key, value = line.strip().split('=', 1)
-            os.environ[key] = value
+ouputFolderDir = str(
+    os.getenv("OUTPUT_FOLDER_DIR", os.path.join(os.getcwd(), "output"))
+)
 
 
-# Load the .env file
-load_env_file('.env')
+def initialize_facefusion():
+    """Initialize facefusion with default state manager settings"""
+    # Initialize execution providers
+    available_execution_providers = get_available_execution_providers()
+    default_execution_provider = available_execution_providers[0] if available_execution_providers else 'cpu'
 
-port = int(os.getenv('PORT', 3000))
-debug = bool(os.getenv('DEBUG', True))
-ouputFolderDir = str(os.getenv('OUPUT_FOLDER_DIR', os.path.join(os.getcwd(), "output")))
+    # Set required state manager items with defaults
+    state_manager.init_item('download_scope', 'full')  # Use 'full' to ensure all models are downloaded
+    state_manager.init_item('execution_providers', [default_execution_provider])
+    state_manager.init_item('execution_device_ids', [0])
+    state_manager.init_item('execution_thread_count', 8)
+    state_manager.init_item('video_memory_strategy', 'strict')
+    state_manager.init_item('system_memory_limit', 0)
+    state_manager.init_item('log_level', 'info')
+
+    # Initialize processors - default to face_swapper
+    state_manager.init_item('processors', ['face_swapper'])
+
+    # Face swapper specific settings
+    state_manager.init_item('face_swapper_model', 'hyperswap_1a_256')
+    state_manager.init_item('face_swapper_pixel_boost', '256x256')
+    state_manager.init_item('face_swapper_weight', 0.5)
+
+    # Output settings
+    state_manager.init_item('output_image_quality', 100)
+    state_manager.init_item('output_image_scale', 1.0)
+    state_manager.init_item('keep_temp', True)
+    state_manager.init_item('temp_frame_format', 'png')
+
+    # Face detector settings
+    state_manager.init_item('face_detector_model', 'yolo_face')
+    state_manager.init_item('face_detector_score', 0.5)
+
+    # Face landmarker settings
+    state_manager.init_item('face_landmarker_model', '2dfan4')
+
+    # Face masker settings
+    state_manager.init_item('face_occluder_model', 'xseg_1')
+    state_manager.init_item('face_parser_model', 'bisenet_resnet_34')
+
+    # Face selector settings
+    state_manager.init_item('face_selector_mode', 'reference')
+    state_manager.init_item('face_selector_order', 'best-worst')
+
+    # Initialize logger
+    logger.init(state_manager.get_item('log_level'))
+
+    # Pre-check and download common modules
+    common_modules = [
+        ('content_analyser', content_analyser),
+        ('face_classifier', face_classifier),
+        ('face_detector', face_detector),
+        ('face_landmarker', face_landmarker),
+        ('face_masker', face_masker),
+        ('face_recognizer', face_recognizer),
+        ('voice_extractor', voice_extractor)
+    ]
+
+    logger.info('Initializing common modules...', __name__)
+    for module_name, module in common_modules:
+        logger.info(f'Initializing {module_name}...', __name__)
+        if not module.pre_check():
+            logger.error(f'{module_name} initialization failed', __name__)
+            return False
+
+    # Pre-check and download processor models
+    logger.info('Initializing processors...', __name__)
+    for processor_module in get_processors_modules(state_manager.get_item('processors')):
+        logger.info(f'Initializing {processor_module.__name__}...', __name__)
+        if not processor_module.pre_check():
+            logger.error(f'{processor_module.__name__} initialization failed', __name__)
+            return False
+
+    logger.info('FaceFusion API initialized successfully', __name__)
+
+    for processor_module in get_processors_modules(state_manager.get_item('processors')):
+        if not processor_module.pre_process('output'):
+            return 2
+    return True
 
 
-app = FastAPI()
+# Initialize on module load
+_initialized = False
+if not _initialized:
+    _initialized = initialize_facefusion()
+    if not _initialized:
+        raise RuntimeError("Failed to initialize FaceFusion")
+
+
+# Define the UTC+7 timezone
+class UTCOffset(datetime.tzinfo):
+    def __init__(self, offset_hours):
+        self.offset = datetime.timedelta(hours=offset_hours)
+
+    def utcoffset(self, dt):
+        return self.offset
+
+    def dst(self, dt):
+        return datetime.timedelta(0)
+
+    def tzname(self, dt):
+        return f"UTC+{self.offset.hours}"
+
+
+# Create a timezone object for UTC+7
+tz_plus_7 = UTCOffset(7)
+
+
+app = FastAPI(title="Your API Service")
 router = APIRouter()
 
-arch = 'clean'
-channel_multiplier = 2
-model_name = 'GFPGANv1.4'
-url = 'https://github.com/TencentARC/GFPGAN/releases/download/v1.3.0/GFPGANv1.4.pth'
-bg_upsampler = None
-# determine model paths
-model_path = os.path.join('experiments/pretrained_models', model_name + '.pth')
-if not os.path.isfile(model_path):
-    model_path = os.path.join('gfpgan/weights', model_name + '.pth')
-if not os.path.isfile(model_path):
-    # download pre-trained models from url
-    model_path = url
+# Configure CORS with environment variables
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=CORS_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 def isFile(path):
     return os.path.splitext(path)[1] != ""
 
 
-def update_global_variables(params):
-    for var_name, value in params.items():
-        if value is not None:
-            if hasattr(globals, var_name):
-                setattr(globals, var_name, value)
-
-
 def to_base64_str(image_path):
     with open(image_path, "rb") as image_file:
         encoded_string = base64.b64encode(image_file.read())
-        return encoded_string.decode('utf-8')
+        return encoded_string.decode("utf-8")
 
 
 def save_file(file_path: str, encoded_data: str):
@@ -85,132 +193,18 @@ def save_file(file_path: str, encoded_data: str):
         file.write(decoded_data)
 
 
-def apply_args():
-    from facefusion.vision import is_image, is_video, detect_image_resolution, detect_video_resolution, detect_video_fps, create_image_resolutions, create_video_resolutions, pack_resolution
-    from facefusion.normalizer import normalize_fps
-    if is_image(globals.target_path):
-        globals.face_analyser_order="best-worst"
-        frame_processors_globals.face_enhancer_blend = 35
-        globals.face_mask_blur = .15
+def make_tmp_dir():
 
-        output_image_resolution = detect_image_resolution(globals.target_path)
-        output_image_resolutions = create_image_resolutions(output_image_resolution)
-        if globals.output_image_resolution in output_image_resolutions:
-            globals.output_image_resolution = globals.output_image_resolution
-        else:
-            globals.output_image_resolution = pack_resolution(output_image_resolution)
-    if is_video(globals.target_path):
-            output_video_resolution = detect_video_resolution(globals.target_path)
-            output_video_resolutions = create_video_resolutions(output_video_resolution)
-            if globals.output_video_resolution in output_video_resolutions:
-                globals.output_video_resolution = globals.output_video_resolution
-            else:
-                globals.output_video_resolution = pack_resolution(output_video_resolution)
-    if globals.output_video_fps or is_video(globals.target_path):
-        globals.output_video_fps = normalize_fps(globals.output_video_fps) or detect_video_fps(globals.target_path)
-
-
-def upscaleImg(img_path:str, ext:str, output_path:str, upscale=1 ):
-    start_time_upscale = time()
-
-    img_name = os.path.basename(img_path)
-    print(f'Processing {img_name} ...')
-    basename, ext = os.path.splitext(img_name)
-    input_img = cv2.imread(img_path, cv2.IMREAD_COLOR)
-        
-    restorer = GFPGANer(
-        model_path=model_path,
-        upscale=upscale,
-        arch=arch,
-        channel_multiplier=channel_multiplier,
-        bg_upsampler=bg_upsampler)
-
-    # restore faces and background if necessary
-    cropped_faces, restored_faces, restored_img = restorer.enhance(
-        input_img,
-        has_aligned=False,
-        only_center_face=False,
-        paste_back=True,
-        weight=None)
-
-    extension = ext
-
-    # save restored img
-    if restored_img is not None:
-
-        # save_restore_path = os.path.join(args.output, f'{basename}.{extension}')
-        # Check if args.output is a directory
-        if os.path.isdir(output_path):
-            save_restore_path = os.path.join(output_path, f'{basename}.{extension}')
-        # Check if args.output is a file
-        elif isFile(output_path):
-            save_restore_path = output_path
-        # If args.output is neither a file nor a directory, handle the error or create a new directory/file
-        else:
-            # Handle this situation as you see fit (e.g., raise an error, create a directory, etc.)
-            raise ValueError("args.output is neither a valid file nor a directory path")
-
-        imwrite(restored_img, save_restore_path)
-
-    if(isFile(output_path)):
-        print(f'Results: {output_path}')
-    else:
-        print(f'Results are in the [{output_path}] folder.')
-
-    seconds = '{:.2f}'.format((time() - start_time_upscale) % 60)
-    print(f'Upscale in: [{seconds}] seconds.')
-
-    return
-
-
-def get_location_frames(reference_frame):
-    try:
-        faces = get_many_faces(reference_frame)
-        face = faces[0]
-        
-        # for face in faces:
-        start_x, start_y, end_x, end_y = map(int, face.bounding_box)
-        padding_x = int((end_x - start_x) * 0.25)
-        padding_y = int((end_y - start_y) * 0.25)
-        start_x = max(0, start_x - padding_x)
-        start_y = max(0, start_y - padding_y)
-        end_x = max(0, end_x + padding_x)
-        end_y = max(0, end_y + padding_y)
-        crop_frame = [start_x, start_y, end_x, end_y]
-
-        return crop_frame
-    except (OSError, ValueError):
-        raise ValueError("Face not found")
-
-
-def crop_image_by_location(image_path: str, crop_frame, tempfilePath, cropFaceSourcePath: str) -> None:
-    image = Image.open(image_path)
-    width, height = image.size
-
-    (start_x, start_y, end_x, end_y) = map(int, crop_frame)
-    if end_x > width:   
-        end_x = width
-    if end_y > height:
-        end_y = height
-
-    cropped_image = image.crop((start_x, start_y, end_x, end_y))
-    # cropped_image.save(cropFaceSourcePath)
-    cropped_image_path = os.path.join(tempfilePath, os.path.basename(f'source-face.png'))
-    cropped_image.save(cropped_image_path)
-    upscaleImg(cropped_image_path, "png", cropFaceSourcePath, 2)
-
-
-def get_face_process(source_path) -> None:
-	return get_location_frames(read_static_image(source_path))
-
-
-def make_tmp_dir(): 
-    # Get the current time
-    current_time = datetime.datetime.now()
-    # Get the current date
-    current_date = current_time.strftime("%Y-%m-%d")
-    # Format the time as requested (hour 0-24)
-    formatted_time = current_time.strftime("%H-%M-%S-%f")[:-2]  # Remove the last two digits of microseconds
+    # Get the current time in UTC
+    current_time_utc = datetime.datetime.now(datetime.timezone.utc)
+    # Convert the current time to the desired timezone
+    current_time_plus_7 = current_time_utc.astimezone(tz_plus_7)
+    # Get the current date in the desired timezone
+    current_date = current_time_plus_7.strftime("%Y/%m/%d/%H")
+    # Format the time as requested (hour 0-24) in the desired timezone
+    formatted_time = current_time_plus_7.strftime("%M-%S-%f")[
+        :-2
+    ]  # Remove the last two digits of microseconds
 
     # Create the base directory path
     base_dir = os.path.join(ouputFolderDir, current_date)
@@ -222,60 +216,228 @@ def make_tmp_dir():
     return tempDir
 
 
-@router.post("/")
-async def process_frames(params = Body(...)) -> dict:
+@router.post("/check-face")
+async def check_face(params=Body(...)) -> dict:
+    """
+    Check and extract faces from a base64-encoded image.
+
+    Parameters:
+    - source: Base64-encoded image string
+    - source_extension: (optional) Image extension (jpg, png, etc.), default 'jpg'
+    - return_faces: (optional) If True, returns base64-encoded face images, default True
+    - save_faces: (optional) If True, saves faces to temp directory and returns paths, default True
+    - padding: (optional) Padding in pixels around face bounding box, default 30
+
+    Returns:
+    - status: 1 for success, 0 for error
+    - data: Object containing:
+      - count: Number of faces detected
+      - faces: Array of face data with images/paths (original ratio maintained)
+    """
+    temp_dir = None
     try:
-        update_global_variables(params)
-        sources = params['sources']
-        source_extension = params['source_extension']
+        # Get parameters
+        source = params["source"]
+        source_extension = params.get("source_extension", "jpg").lstrip('.')
+        return_faces = params.get("return_faces", True)
+        save_faces = params.get("save_faces", True)
+        padding = params.get("padding", 30)
+
+        # Create temp directory
+        temp_dir = make_tmp_dir()
+
+        # Get the current time for filename
+        current_time_utc = datetime.datetime.now(datetime.timezone.utc)
+        current_time_plus_7 = current_time_utc.astimezone(tz_plus_7)
+        formatted_time = current_time_plus_7.strftime("%H-%M-%S-%f")[:-2]
+
+        # Save base64 image to temp file
+        source_path = os.path.join(
+            temp_dir,
+            f"source-{formatted_time}.{source_extension}"
+        )
+        save_file(source_path, source)
+
+        # Read the image
+        vision_frame = read_static_image(source_path)
+
+        # Detect faces
+        faces = get_many_faces([vision_frame])
+        face_count = len(faces)
+
+        logger.info(f"Detected {face_count} faces", __name__)
+
+        if face_count == 0:
+            return {"status": 0, "message": "FACE_NO_FOUND"}
+
+        # Basic response
+        response_data = {
+            "count": face_count,
+            "has_single_face": face_count == 1,
+            "has_multiple_faces": face_count > 1
+        }
+
+        # Extract and return faces if requested
+        if return_faces or save_faces:
+            face_data = []
+            img_height, img_width = vision_frame.shape[:2]
+
+            for idx, face in enumerate(faces):
+                # Get bounding box coordinates
+                x1, y1, x2, y2 = face.bounding_box
+
+                # Add padding and ensure within image boundaries
+                x1_padded = max(0, int(x1 - padding))
+                y1_padded = max(0, int(y1 - padding))
+                x2_padded = min(img_width, int(x2 + padding))
+                y2_padded = min(img_height, int(y2 + padding))
+
+                # Extract face region with padding (maintains original ratio)
+                crop_vision_frame = vision_frame[y1_padded:y2_padded, x1_padded:x2_padded].copy()
+
+                face_info = {
+                    # "index": idx,
+                    # "bounding_box": face.bounding_box.tolist(),
+                    # "bounding_box_with_padding": [x1_padded, y1_padded, x2_padded, y2_padded],
+                    "width": x2_padded - x1_padded,
+                    "height": y2_padded - y1_padded,
+                    "gender": face.gender if hasattr(face, 'gender') else None,
+                    "age": list(face.age) if hasattr(face, 'age') and face.age else None
+                }
+
+                # Return as base64
+                # if return_faces:
+                    # _, buffer = cv2.imencode('.jpg', crop_vision_frame)
+                    # face_base64 = base64.b64encode(buffer).decode('utf-8')
+                    # face_info["image"] = face_base64
+
+                # Save to file
+                if save_faces:
+                    face_filename = f"face_{idx}.jpg"
+                    face_path = os.path.join(temp_dir, face_filename)
+                    write_image(face_path, crop_vision_frame)
+                    face_info["path"] = face_path
+
+                face_data.append(face_info)
+
+            response_data["faces"] = face_data
+        print(response_data)
+        return {"status": 1, "data": response_data}
+
+    except ValueError as e:
+        logger.error(f"ValueError in check_face: {str(e)}", __name__)
+        return {"status": 0, "message": "FACE_NO_FOUND", "error": str(e)}
+    except Exception as e:
+        logger.error(f"Exception in check_face: {str(e)}", __name__)
+        return {"status": 0, "message": "FACE_NO_FOUND", "error": str(e)}
+
+
+@app.post("/")
+async def process_frames(params=Body(...)) -> dict:
+    output_path = None  # Initialize to None to handle exceptions properly
+
+    try:
+        sources = params["sources"]
+        source_extension = params.get("source_extension", "jpg").lstrip('.')  # Remove leading dot if present
+        target_extension = params.get("target_extension", "jpg").lstrip('.')  # Remove leading dot if present
         source_paths = []
 
-        tempDir = make_tmp_dir()
+        temp_dir = make_tmp_dir()
 
-        print(tempDir)
+        print(f"Temp Dir: {temp_dir}")
+
+        # current_time = datetime.datetime.now()
+        # formatted_time = current_time.strftime("%Y%m%d%H%M%S%f")[:-2]  # Remove the last two digits of microseconds
+
+        # Get the current time in UTC
+        current_time_utc = datetime.datetime.now(datetime.timezone.utc)
+        # Convert the current time to the desired timezone
+        current_time_plus_7 = current_time_utc.astimezone(tz_plus_7)
+        # Get the current date in the desired timezone
+        # current_date = current_time_plus_7.strftime("%Y-%m-%d")
+        # Format the time as requested (hour 0-24) in the desired timezone
+        formatted_time = current_time_plus_7.strftime("%H-%M-%S-%f")[
+            :-2
+        ]  # Remove the last two digits of microseconds
 
         for i, source in enumerate(sources):
-            source_path = os.path.join(tempDir, os.path.basename(f'source{i}.{source_extension}'))
+            source_path = os.path.join(
+                temp_dir,
+                f"source{i}-{formatted_time}.{source_extension}",
+            )
+            source_paths.append(source_path)
             save_file(source_path, source)
-            # source_paths.append(source_path)
 
-        firstFace = get_face_process(source_path)
+        target = params["target"]
+        target_path = os.path.join(
+            temp_dir, f"target-{formatted_time}.{target_extension}"
+        )
 
-        cropFaceSourcePath = os.path.join(tempDir, os.path.basename(f'source-face-upscale.png'))
-        crop_image_by_location(source_path, firstFace, tempDir, cropFaceSourcePath)
-        source_paths.append(cropFaceSourcePath)
-
-        print(f'cropFaceSourcePath :>> {cropFaceSourcePath}')
-
-        target = params['target']
-        target_extension = params['target_extension']
-        target_path = os.path.join(tempDir, os.path.basename(f'target.{target_extension}'))
         save_file(target_path, target)
-        globals.source_paths = source_paths
-        globals.target_path = target_path
-        globals.output_path = os.path.join(tempDir, os.path.basename(f'output.{target_extension}'))
-        apply_args()
-        print(globals.source_paths)
-        print(globals.target_path)
-        print(globals.output_path)
+
+        output_path = os.path.join(
+            temp_dir, f"output.{target_extension}"
+        )
+
+        state_manager.set_item("source_paths", source_paths)
+        state_manager.set_item("target_path", target_path)
+        state_manager.set_item("output_path", output_path)
+
+        output_image_resolution = detect_image_resolution(target_path)
+        # output_image_resolutions = create_image_resolutions(output_image_resolution)
+        state_manager.set_item(
+            "output_image_resolution", pack_resolution(output_image_resolution)
+        )
+
         conditional_process()
-        # output = to_base64_str(globals.output_path)
-        output_path = os.path.join(tempDir, os.path.basename(f'output-upscale-1.{target_extension}'))
+        clear_static_faces()
+        # clear_reference_faces()
 
-        upscaleImg(globals.output_path, target_extension, output_path)
+        return {
+            "status": 1,
+            "data": {
+                # "output": output_upscale_base64,
+                "local_path": output_path
+            },
+        }
 
-        output_path_2 = os.path.join(tempDir, os.path.basename(f'output-upscale-2.{target_extension}'))
-        
-        upscaleImg(output_path, target_extension, output_path_2)
-        
-        print(output_path_2)
+        # try:
+        #     response = requests.post(
+        #         f"{API_UPSCALE_URL}/scale",
+        #         json={
+        #             #
+        #             "local_path": output_path,
+        #             "output_dir": temp_dir,
+        #         },
+        #     )
+        #     response.raise_for_status()
+        #     res = response.json()["data"]
+        #     local_path = res["local_path"]
 
-        output_upscale_base64 = to_base64_str(output_path_2) 
-        return {"output": output_upscale_base64}
-    except (OSError, ValueError):
-        return 0
+        #     # output_upscale_base64 = to_base64_str(local_path)
+        #     print(local_path)
+
+        #     return {
+        #         "status": 1,
+        #         "data": {
+        #             # "output": output_upscale_base64,
+        #             "local_path": local_path
+        #         },
+        #     }
+
+        # except Exception as e:
+        #     return {"status": 1, "data": {"output": to_base64_str(output_path)}}
+    except Exception as e:
+        logger.error(f'Processing error: {str(e)}', __name__)
+        clear_static_faces()
+        # clear_reference_faces()
+        # Return error response if output_path is not set or file doesn't exist
+        if output_path and os.path.exists(output_path):
+            return {"status": 1, "data": {"output": to_base64_str(output_path)}}
+        else:
+            return {"status": 0, "message": f"Processing failed: {str(e)}"}
 
 
 def launch():
     app.include_router(router)
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    uvicorn.run(app, host=HOST, port=PORT)
