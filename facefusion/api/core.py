@@ -35,6 +35,9 @@ from facefusion.vision import read_static_images
 from facefusion.face_store import (
     clear_static_faces,
 )
+from facefusion.face_detector import detect_faces
+from facefusion.face_classifier import classify_face
+from facefusion.face_helper import apply_nms, get_nms_threshold
 from facefusion.execution import get_available_execution_providers
 from facefusion.processors.core import get_processors_modules
 
@@ -85,6 +88,7 @@ def initialize_facefusion():
     # Face detector settings
     state_manager.init_item('face_detector_model', 'yolo_face')
     state_manager.init_item('face_detector_score', 0.5)
+    state_manager.init_item('face_detector_angles', [0])
 
     # Face landmarker settings
     state_manager.init_item('face_landmarker_model', '2dfan4')
@@ -227,6 +231,8 @@ async def check_face(params=Body(...)) -> dict:
     - return_faces: (optional) If True, returns base64-encoded face images, default True
     - save_faces: (optional) If True, saves faces to temp directory and returns paths, default True
     - padding: (optional) Padding in pixels around face bounding box, default 30
+    - include_attributes: (optional) If True, includes gender/age/race (adds ~30-50ms per face), default True
+    - min_score: (optional) Minimum confidence score for face detection (0.0-1.0), default 0.5
 
     Returns:
     - status: 1 for success, 0 for error
@@ -242,30 +248,40 @@ async def check_face(params=Body(...)) -> dict:
         return_faces = params.get("return_faces", True)
         save_faces = params.get("save_faces", True)
         padding = params.get("padding", 30)
+        include_attributes = params.get("include_attributes", True)
+        min_score = params.get("min_score", 0.5)  # Confidence threshold for face detection
 
-        # Create temp directory
-        temp_dir = make_tmp_dir()
+        # Decode base64 directly to image (faster than file I/O)
+        decoded_data = base64.b64decode(source)
+        nparr = np.frombuffer(decoded_data, np.uint8)
+        vision_frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
-        # Get the current time for filename
-        current_time_utc = datetime.datetime.now(datetime.timezone.utc)
-        current_time_plus_7 = current_time_utc.astimezone(tz_plus_7)
-        formatted_time = current_time_plus_7.strftime("%H-%M-%S-%f")[:-2]
+        if vision_frame is None:
+            return {"status": 0, "message": "INVALID_IMAGE"}
 
-        # Save base64 image to temp file
-        source_path = os.path.join(
-            temp_dir,
-            f"source-{formatted_time}.{source_extension}"
+        # Only create temp_dir if we need to save faces
+        if save_faces:
+            temp_dir = make_tmp_dir()
+
+        # Lightweight face detection (skips embedding and classification for speed)
+        all_bounding_boxes, all_face_scores, all_face_landmarks_5 = detect_faces(vision_frame)
+
+        # Apply NMS (Non-Maximum Suppression) to filter overlapping detections and low-confidence faces
+        nms_threshold = get_nms_threshold(
+            state_manager.get_item('face_detector_model'),
+            state_manager.get_item('face_detector_angles') or [0]
         )
-        save_file(source_path, source)
 
-        # Read the image
-        vision_frame = read_static_image(source_path)
+        # Filter by confidence score and remove overlapping detections
+        keep_indices = apply_nms(all_bounding_boxes, all_face_scores, min_score, nms_threshold)
 
-        # Detect faces
-        faces = get_many_faces([vision_frame])
-        face_count = len(faces)
+        # Keep only the high-confidence, non-overlapping faces
+        bounding_boxes = [all_bounding_boxes[i] for i in keep_indices]
+        face_scores = [all_face_scores[i] for i in keep_indices]
+        face_landmarks_5 = [all_face_landmarks_5[i] for i in keep_indices]
 
-        logger.info(f"Detected {face_count} faces", __name__)
+        face_count = len(bounding_boxes)
+        logger.info(f"Detected {face_count} faces (filtered from {len(all_bounding_boxes)} raw detections)", __name__)
 
         if face_count == 0:
             return {"status": 0, "message": "FACE_NO_FOUND"}
@@ -282,9 +298,9 @@ async def check_face(params=Body(...)) -> dict:
             face_data = []
             img_height, img_width = vision_frame.shape[:2]
 
-            for idx, face in enumerate(faces):
+            for idx, bounding_box in enumerate(bounding_boxes):
                 # Get bounding box coordinates
-                x1, y1, x2, y2 = face.bounding_box
+                x1, y1, x2, y2 = bounding_box
 
                 # Add padding and ensure within image boundaries
                 x1_padded = max(0, int(x1 - padding))
@@ -297,13 +313,19 @@ async def check_face(params=Body(...)) -> dict:
 
                 face_info = {
                     # "index": idx,
-                    # "bounding_box": face.bounding_box.tolist(),
+                    # "bounding_box": bounding_box.tolist(),
                     # "bounding_box_with_padding": [x1_padded, y1_padded, x2_padded, y2_padded],
                     "width": x2_padded - x1_padded,
                     "height": y2_padded - y1_padded,
-                    "gender": face.gender if hasattr(face, 'gender') else None,
-                    "age": list(face.age) if hasattr(face, 'age') and face.age else None
+                    "score": float(face_scores[idx])  # Detection confidence score
                 }
+
+                # Add gender/age/race if requested (adds ~30-50ms per face)
+                if include_attributes:
+                    gender, age, race = classify_face(vision_frame, face_landmarks_5[idx])
+                    face_info["gender"] = gender
+                    face_info["age"] = list(age) if age else None
+                    face_info["race"] = race
 
                 # Return as base64
                 # if return_faces:
