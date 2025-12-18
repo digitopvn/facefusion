@@ -22,7 +22,7 @@ from facefusion import (
     face_landmarker,
     face_masker,
     face_recognizer,
-    voice_extractor
+    voice_extractor,
 )
 from facefusion.vision import (
     detect_image_resolution,
@@ -60,80 +60,88 @@ def initialize_facefusion():
     """Initialize facefusion with default state manager settings"""
     # Initialize execution providers
     available_execution_providers = get_available_execution_providers()
-    default_execution_provider = available_execution_providers[0] if available_execution_providers else 'cpu'
+    default_execution_provider = (
+        available_execution_providers[0] if available_execution_providers else "cpu"
+    )
 
     # Set required state manager items with defaults
-    state_manager.init_item('download_scope', 'full')  # Use 'full' to ensure all models are downloaded
-    state_manager.init_item('execution_providers', [default_execution_provider])
-    state_manager.init_item('execution_device_ids', [0])
-    state_manager.init_item('execution_thread_count', 8)
-    state_manager.init_item('video_memory_strategy', 'strict')
-    state_manager.init_item('system_memory_limit', 0)
-    state_manager.init_item('log_level', 'info')
+    state_manager.init_item(
+        "download_scope", "full"
+    )  # Use 'full' to ensure all models are downloaded
+    state_manager.init_item("execution_providers", [default_execution_provider])
+    state_manager.init_item("execution_device_ids", [0])
+    state_manager.init_item("execution_thread_count", 8)
+    state_manager.init_item("video_memory_strategy", "strict")
+    state_manager.init_item("system_memory_limit", 0)
+    state_manager.init_item("log_level", "info")
 
     # Initialize processors - default to face_swapper
-    state_manager.init_item('processors', ['face_swapper'])
+    state_manager.init_item("processors", ["face_swapper"])
 
     # Face swapper specific settings
-    state_manager.init_item('face_swapper_model', 'hyperswap_1a_256')
-    state_manager.init_item('face_swapper_pixel_boost', '256x256')
-    state_manager.init_item('face_swapper_weight', 0.5)
+    state_manager.init_item("face_swapper_model", "hyperswap_1a_256")
+    state_manager.init_item("face_swapper_pixel_boost", "256x256")
+    state_manager.init_item("face_swapper_weight", 0.5)
 
     # Output settings
-    state_manager.init_item('output_image_quality', 100)
-    state_manager.init_item('output_image_scale', 1.0)
-    state_manager.init_item('keep_temp', True)
-    state_manager.init_item('temp_frame_format', 'png')
+    state_manager.init_item("output_image_quality", 100)
+    state_manager.init_item("output_image_scale", 1.0)
+    state_manager.init_item("keep_temp", True)
+    state_manager.init_item("temp_frame_format", "png")
 
     # Face detector settings
-    state_manager.init_item('face_detector_model', 'yolo_face')
-    state_manager.init_item('face_detector_score', 0.5)
-    state_manager.init_item('face_detector_angles', [0])
+    state_manager.init_item("face_detector_model", "yolo_face")
+    state_manager.init_item("face_detector_score", 0.5)
+    state_manager.init_item("face_detector_angles", [0])
 
     # Face landmarker settings
-    state_manager.init_item('face_landmarker_model', '2dfan4')
+    state_manager.init_item("face_landmarker_model", "2dfan4")
 
     # Face masker settings
-    state_manager.init_item('face_occluder_model', 'xseg_1')
-    state_manager.init_item('face_parser_model', 'bisenet_resnet_34')
+    state_manager.init_item("face_occluder_model", "xseg_1")
+    state_manager.init_item("face_parser_model", "bisenet_resnet_34")
 
     # Face selector settings
-    state_manager.init_item('face_selector_mode', 'reference')
-    state_manager.init_item('face_selector_order', 'best-worst')
+    state_manager.init_item("face_selector_mode", "reference")
+    state_manager.init_item("face_selector_order", "best-worst")
 
     # Initialize logger
-    logger.init(state_manager.get_item('log_level'))
+    logger.init(state_manager.get_item("log_level"))
 
     # Pre-check and download common modules
     common_modules = [
-        ('content_analyser', content_analyser),
-        ('face_classifier', face_classifier),
-        ('face_detector', face_detector),
-        ('face_landmarker', face_landmarker),
-        ('face_masker', face_masker),
-        ('face_recognizer', face_recognizer),
-        ('voice_extractor', voice_extractor)
+        ("content_analyser", content_analyser),
+        ("face_classifier", face_classifier),
+        ("face_detector", face_detector),
+        ("face_landmarker", face_landmarker),
+        ("face_masker", face_masker),
+        ("face_recognizer", face_recognizer),
+        ("voice_extractor", voice_extractor),
     ]
 
-    logger.info('Initializing common modules...', __name__)
+    logger.info("Initializing common modules...", __name__)
     for module_name, module in common_modules:
-        logger.info(f'Initializing {module_name}...', __name__)
+        logger.info(f"Initializing {module_name}...", __name__)
         if not module.pre_check():
-            logger.error(f'{module_name} initialization failed', __name__)
+            logger.error(f"{module_name} initialization failed", __name__)
             return False
 
     # Pre-check and download processor models
-    logger.info('Initializing processors...', __name__)
-    for processor_module in get_processors_modules(state_manager.get_item('processors')):
-        logger.info(f'Initializing {processor_module.__name__}...', __name__)
+    logger.info("Initializing processors...", __name__)
+    for processor_module in get_processors_modules(
+        state_manager.get_item("processors")
+    ):
+        logger.info(f"Initializing {processor_module.__name__}...", __name__)
         if not processor_module.pre_check():
-            logger.error(f'{processor_module.__name__} initialization failed', __name__)
+            logger.error(f"{processor_module.__name__} initialization failed", __name__)
             return False
 
-    logger.info('FaceFusion API initialized successfully', __name__)
+    logger.info("FaceFusion API initialized successfully", __name__)
 
-    for processor_module in get_processors_modules(state_manager.get_item('processors')):
-        if not processor_module.pre_process('output'):
+    for processor_module in get_processors_modules(
+        state_manager.get_item("processors")
+    ):
+        if not processor_module.pre_process("output"):
             return 2
     return True
 
@@ -158,7 +166,8 @@ class UTCOffset(datetime.tzinfo):
         return datetime.timedelta(0)
 
     def tzname(self, dt):
-        return f"UTC+{self.offset.hours}"
+        hours = int(self.offset.total_seconds() // 3600)
+        return f"UTC+{hours}"
 
 
 # Create a timezone object for UTC+7
@@ -244,12 +253,14 @@ async def check_face(params=Body(...)) -> dict:
     try:
         # Get parameters
         source = params["source"]
-        source_extension = params.get("source_extension", "jpg").lstrip('.')
+        source_extension = params.get("source_extension", "jpg").lstrip(".")
         return_faces = params.get("return_faces", True)
         save_faces = params.get("save_faces", True)
         padding = params.get("padding", 30)
         include_attributes = params.get("include_attributes", True)
-        min_score = params.get("min_score", 0.5)  # Confidence threshold for face detection
+        min_score = params.get(
+            "min_score", 0.5
+        )  # Confidence threshold for face detection
 
         # Decode base64 directly to image (faster than file I/O)
         decoded_data = base64.b64decode(source)
@@ -264,16 +275,20 @@ async def check_face(params=Body(...)) -> dict:
             temp_dir = make_tmp_dir()
 
         # Lightweight face detection (skips embedding and classification for speed)
-        all_bounding_boxes, all_face_scores, all_face_landmarks_5 = detect_faces(vision_frame)
+        all_bounding_boxes, all_face_scores, all_face_landmarks_5 = detect_faces(
+            vision_frame
+        )
 
         # Apply NMS (Non-Maximum Suppression) to filter overlapping detections and low-confidence faces
         nms_threshold = get_nms_threshold(
-            state_manager.get_item('face_detector_model'),
-            state_manager.get_item('face_detector_angles') or [0]
+            state_manager.get_item("face_detector_model"),
+            state_manager.get_item("face_detector_angles") or [0],
         )
 
         # Filter by confidence score and remove overlapping detections
-        keep_indices = apply_nms(all_bounding_boxes, all_face_scores, min_score, nms_threshold)
+        keep_indices = apply_nms(
+            all_bounding_boxes, all_face_scores, min_score, nms_threshold
+        )
 
         # Keep only the high-confidence, non-overlapping faces
         bounding_boxes = [all_bounding_boxes[i] for i in keep_indices]
@@ -281,7 +296,10 @@ async def check_face(params=Body(...)) -> dict:
         face_landmarks_5 = [all_face_landmarks_5[i] for i in keep_indices]
 
         face_count = len(bounding_boxes)
-        logger.info(f"Detected {face_count} faces (filtered from {len(all_bounding_boxes)} raw detections)", __name__)
+        logger.info(
+            f"Detected {face_count} faces (filtered from {len(all_bounding_boxes)} raw detections)",
+            __name__,
+        )
 
         if face_count == 0:
             return {"status": 0, "message": "FACE_NO_FOUND"}
@@ -290,7 +308,7 @@ async def check_face(params=Body(...)) -> dict:
         response_data = {
             "count": face_count,
             "has_single_face": face_count == 1,
-            "has_multiple_faces": face_count > 1
+            "has_multiple_faces": face_count > 1,
         }
 
         # Extract and return faces if requested
@@ -309,7 +327,9 @@ async def check_face(params=Body(...)) -> dict:
                 y2_padded = min(img_height, int(y2 + padding))
 
                 # Extract face region with padding (maintains original ratio)
-                crop_vision_frame = vision_frame[y1_padded:y2_padded, x1_padded:x2_padded].copy()
+                crop_vision_frame = vision_frame[
+                    y1_padded:y2_padded, x1_padded:x2_padded
+                ].copy()
 
                 face_info = {
                     # "index": idx,
@@ -317,26 +337,28 @@ async def check_face(params=Body(...)) -> dict:
                     # "bounding_box_with_padding": [x1_padded, y1_padded, x2_padded, y2_padded],
                     "width": x2_padded - x1_padded,
                     "height": y2_padded - y1_padded,
-                    "score": float(face_scores[idx])  # Detection confidence score
+                    "score": float(face_scores[idx]),  # Detection confidence score
                 }
 
                 # Add gender/age/race if requested (adds ~30-50ms per face)
                 if include_attributes:
-                    gender, age, race = classify_face(vision_frame, face_landmarks_5[idx])
+                    gender, age, race = classify_face(
+                        vision_frame, face_landmarks_5[idx]
+                    )
                     face_info["gender"] = gender
                     face_info["age"] = list(age) if age else None
                     face_info["race"] = race
 
                 # Return as base64
                 # if return_faces:
-                    # _, buffer = cv2.imencode('.jpg', crop_vision_frame)
-                    # face_base64 = base64.b64encode(buffer).decode('utf-8')
-                    # face_info["image"] = face_base64
+                # _, buffer = cv2.imencode('.jpg', crop_vision_frame)
+                # face_base64 = base64.b64encode(buffer).decode('utf-8')
+                # face_info["image"] = face_base64
 
                 # Save to file
                 if save_faces:
                     face_filename = f"face_{idx}.jpg"
-                    face_path = os.path.join(temp_dir, face_filename)
+                    face_path = os.path.join(str(temp_dir), str(face_filename))
                     write_image(face_path, crop_vision_frame)
                     face_info["path"] = face_path
 
@@ -360,8 +382,12 @@ async def process_frames(params=Body(...)) -> dict:
 
     try:
         sources = params["sources"]
-        source_extension = params.get("source_extension", "jpg").lstrip('.')  # Remove leading dot if present
-        target_extension = params.get("target_extension", "jpg").lstrip('.')  # Remove leading dot if present
+        source_extension = params.get("source_extension", "jpg").lstrip(
+            "."
+        )  # Remove leading dot if present
+        target_extension = params.get("target_extension", "jpg").lstrip(
+            "."
+        )  # Remove leading dot if present
         source_paths = []
 
         temp_dir = make_tmp_dir()
@@ -397,9 +423,7 @@ async def process_frames(params=Body(...)) -> dict:
 
         save_file(target_path, target)
 
-        output_path = os.path.join(
-            temp_dir, f"output.{target_extension}"
-        )
+        output_path = os.path.join(temp_dir, f"output.{target_extension}")
 
         state_manager.set_item("source_paths", source_paths)
         state_manager.set_item("target_path", target_path)
@@ -407,9 +431,13 @@ async def process_frames(params=Body(...)) -> dict:
 
         output_image_resolution = detect_image_resolution(target_path)
         # output_image_resolutions = create_image_resolutions(output_image_resolution)
-        state_manager.set_item(
-            "output_image_resolution", pack_resolution(output_image_resolution)
-        )
+        if output_image_resolution is not None:
+            state_manager.set_item(
+                "output_image_resolution", pack_resolution(output_image_resolution)
+            )
+        else:
+            logger.error("Failed to detect image resolution for target_path", __name__)
+            return {"status": 0, "message": "Failed to detect image resolution."}
 
         conditional_process()
         clear_static_faces()
@@ -450,7 +478,7 @@ async def process_frames(params=Body(...)) -> dict:
         # except Exception as e:
         #     return {"status": 1, "data": {"output": to_base64_str(output_path)}}
     except Exception as e:
-        logger.error(f'Processing error: {str(e)}', __name__)
+        logger.error(f"Processing error: {str(e)}", __name__)
         clear_static_faces()
         # clear_reference_faces()
         # Return error response if output_path is not set or file doesn't exist
