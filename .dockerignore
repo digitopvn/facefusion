@@ -9,3 +9,10 @@ optimizer/
 out/
 gcloud-service-account.json
 __test__
+tsconfig.json
+README.md
+package.json
+nginx-cron.sh
+LICENSE.md
+ecosystem.config.js
+clone-folder.sh
