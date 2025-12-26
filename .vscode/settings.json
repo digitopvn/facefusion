@@ -7,5 +7,27 @@
   "python.formatting.provider": "yapf",
   "python.formatting.yapfArgs": ["--style", "{BASED_ON_STYLE = pep8, BLANK_LINE_BEFORE_NESTED_CLASS_OR_DEF = true, SPLIT_BEFORE_EXPRESSION_AFTER_OPENING_PAREN = true, COLUMN_LIMIT = 120}"],
   "python.linting.flake8Enabled": true,
-  "python.linting.flake8Args": ["max-line-length=120"]
+  "python.linting.flake8Args": [
+    "max-line-length=120"
+  ],
+  "workbench.colorCustomizations": {
+    "activityBar.activeBackground": "#6d9217",
+    "activityBar.background": "#6d9217",
+    "activityBar.foreground": "#e7e7e7",
+    "activityBar.inactiveForeground": "#e7e7e799",
+    "activityBarBadge.background": "#91d2ee",
+    "activityBarBadge.foreground": "#15202b",
+    "commandCenter.border": "#e7e7e799",
+    "sash.hoverBorder": "#6d9217",
+    "statusBar.background": "#4c6610",
+    "statusBar.foreground": "#e7e7e7",
+    "statusBarItem.hoverBackground": "#6d9217",
+    "statusBarItem.remoteBackground": "#4c6610",
+    "statusBarItem.remoteForeground": "#e7e7e7",
+    "titleBar.activeBackground": "#4c6610",
+    "titleBar.activeForeground": "#e7e7e7",
+    "titleBar.inactiveBackground": "#4c661099",
+    "titleBar.inactiveForeground": "#e7e7e799"
+  },
+  "peacock.color": "#4c6610"
 }

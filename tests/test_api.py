@@ -24,7 +24,7 @@ def request(source_paths, target_path):
         'source_extension': '.jpg',
         'target_extension': '.jpg'
     }
-    url = 'http://127.0.0.1:8000/check-face'
+    url = 'http://127.0.0.1:3062/check-face'
     response = requests.post(url, json=params)
     print("Status Code:", response.status_code)
     if response.status_code == 200:
