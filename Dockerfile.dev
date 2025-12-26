@@ -1,4 +1,5 @@
-FROM docker.io/digitop/facefusion:v0-2-11-1 AS base
+# FROM docker.io/digitop/facefusion:v0-2-11-1 AS base
+FROM reg.ult.vn/facefusion:latest AS base
 
 # Set working directory for all build stages.
 WORKDIR /usr/src/python-app
