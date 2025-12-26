@@ -4,6 +4,7 @@ import os
 import tempfile
 import base64
 from fastapi.middleware.cors import CORSMiddleware
+from facefusion.api.security import SecurityMiddleware
 from facefusion.core import conditional_process
 import uvicorn
 from typing import Optional
@@ -184,6 +185,13 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+
+# Add Security Middleware (hash validation)
+# Exclude paths that don't require authentication
+app.add_middleware(
+    SecurityMiddleware,
+    exclude_paths=["/", "/docs", "/openapi.json", "/redoc"]
 )
 
 
@@ -451,32 +459,6 @@ async def process_frames(params=Body(...)) -> dict:
             },
         }
 
-        # try:
-        #     response = requests.post(
-        #         f"{API_UPSCALE_URL}/scale",
-        #         json={
-        #             #
-        #             "local_path": output_path,
-        #             "output_dir": temp_dir,
-        #         },
-        #     )
-        #     response.raise_for_status()
-        #     res = response.json()["data"]
-        #     local_path = res["local_path"]
-
-        #     # output_upscale_base64 = to_base64_str(local_path)
-        #     print(local_path)
-
-        #     return {
-        #         "status": 1,
-        #         "data": {
-        #             # "output": output_upscale_base64,
-        #             "local_path": local_path
-        #         },
-        #     }
-
-        # except Exception as e:
-        #     return {"status": 1, "data": {"output": to_base64_str(output_path)}}
     except Exception as e:
         logger.error(f"Processing error: {str(e)}", __name__)
         clear_static_faces()
