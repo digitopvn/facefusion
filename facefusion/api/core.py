@@ -488,6 +488,11 @@ async def process_frames(params=Body(...)) -> dict:
             return {"status": 0, "message": f"Processing failed: {str(e)}"}
 
 
+@app.get("/")
+async def home():
+    return 1
+
+
 def launch():
     app.include_router(router)
     uvicorn.run(app, host=HOST, port=PORT)
