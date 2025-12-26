@@ -4,32 +4,10 @@
 
 ################################################################################
 # Use Python image for base image for all stages.
-FROM python:3.12 as base
+FROM docker.io/digitop/facefusion:v0-2-11-1 as base
 
 # Set working directory for all build stages.
 WORKDIR /usr/src/python-app
-
-# Install system dependencies
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-    ffmpeg \
-    curl \
-    gcc \
-    g++ \
-    git \
-    && rm -rf /var/lib/apt/lists/*
-
-ENV GRADIO_SERVER_NAME=0.0.0.0
-
-# RUN git clone https://github.com/digitopvn/facefusion.git --branch dev/tam --single-branch --depth 1 facefusion
-
-# Create a virtual environment
-RUN python3 -m venv /venv
-
-# Activate the virtual environment before installing packages
-RUN . /venv/bin/activate && pip install inquirer insightface opennsfw2 tensorflow && \
-    pip install basicsr facexlib && \
-    pip install realesrgan
 
 COPY . .
 
