@@ -38,7 +38,7 @@ RUN . /venv/bin/activate && \
     pip install -r requirements.txt
 
 RUN . /venv/bin/activate && \
-    python facefusion.py --face-mask-blur 0.1 --face-enhancer-model gfpgan_1.4 --output-image-quality 100 --face-analyser-order left-right --face-selector-mode reference --headless --temp-frame-format png -s "./tests/images/elon-1.jpg" -t "./tests/images/mark.jpg" -o "./tests/images/output.png" --headless
+    python facefusion.py headless-run --face-mask-blur 0.1 --face-enhancer-model gfpgan_1.4 --output-image-quality 100 --face-selector-mode reference --temp-frame-format png -s "./tests/images/elon-1.jpg" -t "./tests/images/mark.jpg" -o "./tests/images/output.png"
 
 EXPOSE 3000
 
