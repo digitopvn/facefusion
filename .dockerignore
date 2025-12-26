@@ -2,6 +2,8 @@
 .gitignore
 .next/
 .dockerignore
+.vscode
+.github
 Dockerfile*
 docker-compose.yml
 node_modules/
