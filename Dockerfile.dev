@@ -43,4 +43,4 @@ RUN . /venv/bin/activate && \
 EXPOSE 3000
 
 # Use exec form and activate venv properly
-CMD ["/bin/bash", "-c", ". /venv/bin/activate && python facefusion.py --api"]
+CMD ["/bin/bash", "-c", ". /venv/bin/activate && python facefusion.py api"]
