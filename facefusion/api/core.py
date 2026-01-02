@@ -356,18 +356,18 @@ async def check_face(params=Body(...)) -> dict:
                     face_info["age"] = list(age) if age else None
                     face_info["race"] = race
 
-                # Return as base64
-                # if return_faces:
-                # _, buffer = cv2.imencode('.jpg', crop_vision_frame)
-                # face_base64 = base64.b64encode(buffer).decode('utf-8')
-                # face_info["image"] = face_base64
+                    # Return as base64
+                    # if return_faces:
+                    # _, buffer = cv2.imencode('.jpg', crop_vision_frame)
+                    # face_base64 = base64.b64encode(buffer).decode('utf-8')
+                    # face_info["image"] = face_base64
 
-                # Save to file
-                if save_faces:
-                    face_filename = f"face_{idx}.jpg"
-                    face_path = os.path.join(str(temp_dir), str(face_filename))
-                    write_image(face_path, crop_vision_frame)
-                    face_info["path"] = face_path.replace(ouputFolderDir, "")
+                    # Save to file
+                    if save_faces:
+                        face_filename = f"face_{idx}_{gender}_{age}.jpg"
+                        face_path = os.path.join(str(temp_dir), str(face_filename))
+                        write_image(face_path, crop_vision_frame)
+                        face_info["path"] = face_path.replace(ouputFolderDir, "")
 
                 face_data.append(face_info)
 
