@@ -228,8 +228,8 @@ def make_tmp_dir():
 
     # Create the base directory path
     base_dir = os.path.join(ouputFolderDir, current_date)
-    # Ensure the base directory exists
-    os.makedirs(base_dir, exist_ok=True)
+    # Ensure the base directory exists with 754 permissions (rwxr-xr--)
+    os.makedirs(base_dir, mode=0o754, exist_ok=True)
 
     # Create the temporary directory path
     tempDir = tempfile.mkdtemp(prefix=formatted_time + "-", dir=base_dir)
