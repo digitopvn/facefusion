@@ -1,5 +1,5 @@
 # FROM docker.io/digitop/facefusion:v0-2-11-1 AS base
-FROM reg.ult.vn/facefusion:latest AS base
+FROM reg.ult.vn/digitop/facefusion:v0-3-7-947 AS base
 
 # Set working directory for all build stages.
 WORKDIR /usr/src/python-app
@@ -7,10 +7,9 @@ WORKDIR /usr/src/python-app
 # Copy application files
 COPY . .
 
-# # Install dependencies as root
-# RUN . /venv/bin/activate && \
-#     python install.py --onnxruntime default --skip-conda && \
-#     pip install -r requirements.txt
+# Install dependencies as root
+RUN . /venv/bin/activate && \
+    pip install -r requirements.txt
 
 # Run initial test/setup as root
 RUN . /venv/bin/activate && \
