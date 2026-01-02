@@ -367,7 +367,7 @@ async def check_face(params=Body(...)) -> dict:
                     face_filename = f"face_{idx}.jpg"
                     face_path = os.path.join(str(temp_dir), str(face_filename))
                     write_image(face_path, crop_vision_frame)
-                    face_info["path"] = face_path
+                    face_info["path"] = face_path.replace(ouputFolderDir, "")
 
                 face_data.append(face_info)
 
