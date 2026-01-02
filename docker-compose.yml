@@ -1,0 +1,11 @@
+  version: '3.8'
+
+  services:
+    facefusion:
+      image: "reg.ult.vn/facefusion:latest"
+      ports:
+        - "39019:3000"
+      volumes:
+        - /home/runner/storage/sites/2601-ps/upload:/usr/src/python-app/output
+      environment:
+        - OUTPUT_FOLDER_DIR=/usr/src/python-app/output

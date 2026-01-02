@@ -190,8 +190,7 @@ app.add_middleware(
 # Add Security Middleware (hash validation)
 # Exclude paths that don't require authentication
 app.add_middleware(
-    SecurityMiddleware,
-    exclude_paths=["/", "/docs", "/openapi.json", "/redoc"]
+    SecurityMiddleware, exclude_paths=["/", "/docs", "/openapi.json", "/redoc"]
 )
 
 
@@ -221,7 +220,7 @@ def make_tmp_dir():
     # Convert the current time to the desired timezone
     current_time_plus_7 = current_time_utc.astimezone(tz_plus_7)
     # Get the current date in the desired timezone
-    current_date = current_time_plus_7.strftime("%Y/%m/%d/%H")
+    current_date = current_time_plus_7.strftime("%y/%m/%d/%M")
     # Format the time as requested (hour 0-24) in the desired timezone
     formatted_time = current_time_plus_7.strftime("%M-%S-%f")[
         :-2
@@ -455,7 +454,7 @@ async def process_frames(params=Body(...)) -> dict:
             "status": 1,
             "data": {
                 # "output": output_upscale_base64,
-                "local_path": output_path
+                "local_path": output_path.replace(ouputFolderDir, "")
             },
         }
 
