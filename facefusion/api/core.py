@@ -364,7 +364,7 @@ async def check_face(params=Body(...)) -> dict:
 
                 # Save to file
                 if save_faces:
-                    face_filename = f"face_{idx}.jpg"
+                    face_filename = f"face_{idx}_{gender}_{age}.jpg"
                     face_path = os.path.join(str(temp_dir), str(face_filename))
                     write_image(face_path, crop_vision_frame)
                     face_info["path"] = face_path.replace(ouputFolderDir, "")

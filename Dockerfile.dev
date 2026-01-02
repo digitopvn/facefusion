@@ -7,10 +7,10 @@ WORKDIR /usr/src/python-app
 # Copy application files
 COPY . .
 
-# Install dependencies as root
-RUN . /venv/bin/activate && \
-    python install.py --onnxruntime default --skip-conda && \
-    pip install -r requirements.txt
+# # Install dependencies as root
+# RUN . /venv/bin/activate && \
+#     python install.py --onnxruntime default --skip-conda && \
+#     pip install -r requirements.txt
 
 # Run initial test/setup as root
 RUN . /venv/bin/activate && \
