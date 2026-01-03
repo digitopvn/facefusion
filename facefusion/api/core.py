@@ -233,6 +233,8 @@ def make_tmp_dir():
 
     # Create the temporary directory path
     tempDir = tempfile.mkdtemp(prefix=formatted_time + "-", dir=base_dir)
+    # Set 754 permissions (rwxr-xr--) on the temporary directory
+    os.chmod(tempDir, 0o754)
     return tempDir
 
 
